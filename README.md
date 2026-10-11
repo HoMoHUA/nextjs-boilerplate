@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hermes Office
 
-## Getting Started
+A 3D virtual office (Next.js + three.js / react-three-fiber) for your [hermes-agent](https://github.com/NousResearch/hermes-agent) team: chat rooms per team, chibi agents at their desks, a live “what it is actually doing” timeline, approval requests (“Needs you”), outputs and the full thread.
 
-First, run the development server:
+## Connect your hermes-agent
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Enable hermes-agent’s OpenAI-compatible API server in `~/.hermes/.env`:
+   ```
+   API_SERVER_ENABLED=true
+   API_SERVER_KEY=your-secret
+   ```
+2. Start the gateway: `hermes gateway` (listens on `http://127.0.0.1:8642`).
+3. In this project: `cp .env.example .env.local` and set `HERMES_API_URL` / `HERMES_API_KEY`.
+4. `npm install && npm run dev` → http://localhost:3000
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Without `HERMES_API_URL` the office runs in **demo** mode with simulated replies. The header shows `live`, `offline` or `demo`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The browser never sees your key: requests go through `app/api/hermes` which proxies `POST /v1/chat/completions` (streaming).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How agents drive the office
 
-## Learn More
+Each agent is a persona (name, role, instructions) sent to hermes-agent as the system prompt. Agents can embed markers in their replies, which are hidden from the chat and drive the UI:
 
-To learn more about Next.js, take a look at the following resources:
+| Marker | Effect |
+| --- | --- |
+| `[[STEP: title \| description]]` | Adds a step to the “What it is actually doing” timeline |
+| `[[OUTPUT: title]]` | The text after it becomes an output in the Output tab |
+| `[[NEEDS_APPROVAL: summary]]` | Shows the “Needs you” bubble above the agent with Review first / Approve (10 min timer) |
+| `[[DELEGATE: Name \| task]]` | The lead hands a sub-task to a teammate, who then runs automatically |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Protocol and prompt building live in `lib/protocol.ts`; orchestration in `lib/store.ts`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Features
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Rooms (teams) with create / edit / delete, Lounge overview, Schedule room (recurring prompts while the tab is open)
+- Manage team: names, roles, instructions, lead, hair style, colors, glasses
+- Inspector / Output / Thread panels, `@Name` mentions, file attachments (text files), stop a running agent
+- Office themes, state saved in localStorage
