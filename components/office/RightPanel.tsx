@@ -6,6 +6,7 @@ import type { Agent, AgentStatus, OfficeState, Room, Step } from "@/lib/types";
 import { AgentAvatar } from "./AgentAvatar";
 import { ApprovalCard } from "./ApprovalCard";
 import { Check, ChevronLeft, ChevronRight, Stop } from "./icons";
+import { Markdown } from "./Markdown";
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
   idle: "READY",
@@ -153,7 +154,9 @@ function Outputs({ s, room }: { s: OfficeState; room: Room }) {
                 {o.status === "approved" ? "APPROVED" : "DRAFT"}
               </span>
             </div>
-            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words font-sans text-[12.5px] leading-relaxed text-[#3a3d47]">{o.content}</pre>
+            <div className="mt-3 max-h-80 overflow-auto text-[12.5px] leading-relaxed text-[#3a3d47]">
+              <Markdown text={o.content} />
+            </div>
             <div className="mt-3 flex gap-2">
               <button onClick={() => navigator.clipboard?.writeText(o.content)} className="rounded-full border border-[#e3e5ea] px-3 py-1 text-[12px] text-[#4e525d] hover:bg-[#f5f6f8]">
                 Copy
@@ -196,9 +199,9 @@ function Thread({ room }: { room: Room }) {
         return (
           <div key={m.id} className="mr-6 flex gap-2">
             {agent && <span className="shrink-0"><AgentAvatar look={agent.look} size={28} /></span>}
-            <div className={`rounded-[16px] rounded-tl-[4px] px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ${m.error ? "bg-red-50 text-red-700" : "bg-white/90 text-[#2a2d36] shadow-sm"}`}>
+            <div className={`min-w-0 rounded-[16px] rounded-tl-[4px] px-3.5 py-2.5 text-[13px] leading-relaxed ${m.error ? "bg-red-50 text-red-700" : "bg-white/90 text-[#2a2d36] shadow-sm"}`}>
               <div className="mb-0.5 text-[11px] font-semibold text-[#6c707b]">{agent?.name ?? "Agent"}</div>
-              {m.content || (m.streaming ? <span className="text-[#9a9ea8]">typing…</span> : "")}
+              {m.content ? <Markdown text={m.content} /> : m.streaming ? <span className="text-[#9a9ea8]">typing…</span> : null}
             </div>
           </div>
         );
@@ -224,13 +227,13 @@ export function RightPanel({ s, room }: { s: OfficeState; room: Room }) {
     ["thread", "Thread"],
   ] as const;
   return (
-    <aside className="flex w-[380px] shrink-0 flex-col pt-10">
+    <aside className="flex w-[340px] shrink-0 flex-col pt-10 min-[1800px]:w-[380px]">
       <div className="flex items-center gap-2">
         {tabs.map(([id, label]) => (
           <button
             key={id}
             onClick={() => actions.set("rightTab", id)}
-            className={`h-12 rounded-full px-6 text-[14.5px] transition ${s.rightTab === id ? "bg-[#16171d] font-semibold text-white" : "text-[#2a2d36] hover:bg-white/60"}`}
+            className={`h-12 rounded-full px-5 text-[14.5px] transition min-[1800px]:px-6 ${s.rightTab === id ? "bg-[#16171d] font-semibold text-white" : "text-[#2a2d36] hover:bg-white/60"}`}
           >
             {label}
           </button>
@@ -240,6 +243,16 @@ export function RightPanel({ s, room }: { s: OfficeState; room: Room }) {
         </button>
       </div>
       <div className="mt-8 flex-1 overflow-y-auto pb-8 pr-1">
+        {s.view !== "room" && (
+          <button
+            onClick={() => actions.selectRoom(room.id)}
+            className="mb-4 flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[12.5px] text-[#3a3d47] shadow-sm hover:bg-white"
+          >
+            <span>{room.emoji}</span>
+            <span className="font-semibold">{room.name}</span>
+            <span className="text-[#9a9ea8]">· open room</span>
+          </button>
+        )}
         {s.rightTab === "inspector" && <Inspector s={s} room={room} />}
         {s.rightTab === "output" && <Outputs s={s} room={room} />}
         {s.rightTab === "thread" && <Thread room={room} />}

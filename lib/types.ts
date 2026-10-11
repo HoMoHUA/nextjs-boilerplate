@@ -1,6 +1,9 @@
 export type AgentStatus = "idle" | "working" | "needs_you" | "done";
 export type HairStyle = "short" | "curly" | "fluffy" | "bun" | "bob" | "buzz";
 export type Pose = "stand" | "sit" | "type" | "tablet";
+export type Backend = "hermes" | "claude-code";
+/** Where a Claude Code subagent definition comes from. */
+export type AgentSource = "office" | "file" | "builtin";
 
 export interface AgentLook {
   skin: string;
@@ -22,6 +25,12 @@ export interface Agent {
   isLead: boolean;
   status: AgentStatus;
   look: AgentLook;
+  /** Claude Code subagent type (defaults to the lower-cased name). */
+  subagentId?: string;
+  /** office = defined here and sent to Claude Code; file = .claude/agents/*.md; builtin = Explore, Plan, … */
+  source?: AgentSource;
+  /** Live one-liner of what the agent is doing right now (e.g. "Read · app/page.tsx"). */
+  activity?: string;
 }
 
 export interface Message {
@@ -78,6 +87,10 @@ export interface Room {
   outputs: Output[];
   startedAt: number;
   unread: boolean;
+  backend: Backend;
+  /** Claude Code session to resume, so the room keeps its context. */
+  ccSessionId?: string;
+  costUsd?: number;
 }
 
 export interface Schedule {
@@ -88,6 +101,17 @@ export interface Schedule {
   everyMinutes: number;
   nextRunAt: number;
   enabled: boolean;
+}
+
+/** Short-lived scene effects (not persisted). */
+export interface Fx {
+  id: string;
+  kind: "handoff" | "celebrate";
+  roomId: string;
+  from?: string;
+  to?: string;
+  agentId?: string;
+  ts: number;
 }
 
 export type SceneTheme = "cream" | "mint" | "lavender" | "sky";
@@ -104,4 +128,5 @@ export interface OfficeState {
   roomsCollapsed: boolean;
   panelCollapsed: boolean;
   focusOutputId: string | null;
+  fx: Fx[];
 }

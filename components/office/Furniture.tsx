@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
-import { CanvasTexture, SRGBColorSpace } from "three";
+import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Group, type Mesh, type MeshStandardMaterial } from "three";
 
 const WHITE = "#f7f4ef";
 const WOOD = "#e8d6bc";
@@ -55,19 +56,23 @@ function makeChartTexture() {
   return t;
 }
 
+/** A tall "code" texture that scrolls on the monitor while someone works. */
 function makeScreenTexture(seed: number) {
   const c = document.createElement("canvas");
   c.width = 256;
-  c.height = 160;
+  c.height = 512;
   const g = c.getContext("2d")!;
   g.fillStyle = "#24262d";
-  g.fillRect(0, 0, 256, 160);
-  for (let i = 0; i < 9; i++) {
-    g.fillStyle = (i + seed) % 3 === 0 ? "#6f8cff" : "#4a4e5a";
-    g.fillRect(16 + ((i * 13 + seed * 7) % 30), 16 + i * 15, 60 + ((i * 37 + seed * 11) % 140), 6);
+  g.fillRect(0, 0, 256, 512);
+  const colors = ["#6f8cff", "#4a4e5a", "#4a4e5a", "#8fd19e", "#4a4e5a", "#f0b86e"];
+  for (let i = 0; i < 32; i++) {
+    g.fillStyle = colors[(i * 7 + seed) % colors.length];
+    g.fillRect(16 + ((i * 13 + seed * 7) % 40), 10 + i * 15.6, 40 + ((i * 37 + seed * 11) % 160), 6);
   }
   const t = new CanvasTexture(c);
   t.colorSpace = SRGBColorSpace;
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.repeat.set(1, 0.32);
   return t;
 }
 
@@ -135,8 +140,14 @@ export function Chair({ position, rotation = 0, color = WHITE }: { position: V3;
   );
 }
 
-export function Monitor({ position, rotation = 0, seed = 0, wide = 1 }: { position: V3; rotation?: number; seed?: number; wide?: number }) {
+export function Monitor({ position, rotation = 0, seed = 0, wide = 1, active = false }: { position: V3; rotation?: number; seed?: number; wide?: number; active?: boolean }) {
   const tex = useMemo(() => makeScreenTexture(seed), [seed]);
+  const mat = useRef<MeshStandardMaterial>(null);
+  useFrame((_, dt) => {
+    const map = mat.current?.map;
+    if (map && active) map.offset.y = (map.offset.y + dt * 0.12) % 1;
+    if (mat.current) mat.current.emissiveIntensity += ((active ? 0.55 : 0.22) - mat.current.emissiveIntensity) * Math.min(1, dt * 3);
+  });
   return (
     <group position={position} rotation={[0, rotation, 0]}>
       <RoundedBox args={[0.42, 0.04, 0.3]} radius={0.015} position={[0, 0.02, 0]} castShadow>
@@ -151,7 +162,7 @@ export function Monitor({ position, rotation = 0, seed = 0, wide = 1 }: { positi
       </RoundedBox>
       <mesh position={[0, 0.65, 0.032]}>
         <planeGeometry args={[1.17 * wide, 0.64]} />
-        <meshStandardMaterial map={tex} emissive="#ffffff" emissiveMap={tex} emissiveIntensity={0.25} roughness={0.25} />
+        <meshStandardMaterial ref={mat} map={tex} emissive="#ffffff" emissiveMap={tex} emissiveIntensity={0.25} roughness={0.25} />
       </mesh>
     </group>
   );
@@ -326,5 +337,82 @@ export function Cabinet({ position, rotation = 0 }: { position: V3; rotation?: n
         <M c="#ececec" />
       </RoundedBox>
     </group>
+  );
+}
+
+/** Potted plant whose leaves sway a little. */
+export function Plant({ position, scale = 1, seed = 0 }: { position: V3; scale?: number; seed?: number }) {
+  const leaves = useRef<Group>(null);
+  useFrame(({ clock }) => {
+    if (leaves.current) leaves.current.rotation.z = Math.sin(clock.elapsedTime * 0.8 + seed) * 0.04;
+  });
+  const n = 9;
+  return (
+    <group position={position} scale={scale}>
+      <mesh position={[0, 0.32, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.34, 0.26, 0.64, 28]} />
+        <M c={WHITE} r={0.4} />
+      </mesh>
+      <mesh position={[0, 0.63, 0]}>
+        <cylinderGeometry args={[0.31, 0.31, 0.03, 24]} />
+        <M c="#8a6a4f" r={1} />
+      </mesh>
+      <group ref={leaves} position={[0, 0.62, 0]}>
+        {Array.from({ length: n }, (_, i) => {
+          const a = (i / n) * Math.PI * 2 + seed;
+          const tilt = 0.45 + (i % 3) * 0.18;
+          return (
+            <group key={i} rotation={[0, a, 0]}>
+              <mesh position={[0, 0.42, 0.18]} rotation={[tilt, 0, 0]} scale={[0.16, 0.5, 0.05]} castShadow>
+                <sphereGeometry args={[1, 14, 10]} />
+                <M c={i % 2 ? "#5f9e6e" : "#77b383"} r={0.7} />
+              </mesh>
+            </group>
+          );
+        })}
+      </group>
+    </group>
+  );
+}
+
+/** Mug with a soft looping steam. */
+export function Mug({ position }: { position: V3 }) {
+  const puffs = useRef<(Mesh | null)[]>([]);
+  useFrame(({ clock }) => {
+    puffs.current.forEach((p, i) => {
+      if (!p) return;
+      const k = (clock.elapsedTime * 0.45 + i / 3) % 1;
+      p.position.y = 0.2 + k * 0.45;
+      p.position.x = Math.sin((k + i) * 5) * 0.03;
+      p.scale.setScalar(0.04 + k * 0.07);
+      (p.material as MeshStandardMaterial).opacity = 0.45 * (1 - k);
+    });
+  });
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.09, 0]} castShadow>
+        <cylinderGeometry args={[0.09, 0.08, 0.18, 20]} />
+        <M c="#f08a6c" r={0.4} />
+      </mesh>
+      <mesh position={[0.1, 0.09, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <torusGeometry args={[0.045, 0.014, 8, 16]} />
+        <M c="#f08a6c" r={0.4} />
+      </mesh>
+      {[0, 1, 2].map((i) => (
+        <mesh key={i} ref={(el) => { puffs.current[i] = el; }}>
+          <sphereGeometry args={[1, 10, 8]} />
+          <meshStandardMaterial color="#ffffff" transparent opacity={0.3} depthWrite={false} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+export function Rug({ position, radius = 2.2, color = "#e6dccd" }: { position: V3; radius?: number; color?: string }) {
+  return (
+    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <circleGeometry args={[radius, 48]} />
+      <M c={color} r={1} />
+    </mesh>
   );
 }

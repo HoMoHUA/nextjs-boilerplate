@@ -63,7 +63,7 @@ export function RoomPanel({ s, onNewRoom, onEditRoom }: { s: OfficeState; onNewR
   }
 
   return (
-    <aside className="flex w-[320px] shrink-0 flex-col pt-10">
+    <aside className="flex w-[272px] shrink-0 flex-col pt-10 min-[1800px]:w-[320px]">
       <div className="flex items-center gap-4">
         <button onClick={() => actions.set("roomsCollapsed", true)} className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm hover:bg-white" aria-label="Collapse rooms">
           <ChevronLeft />
@@ -74,10 +74,10 @@ export function RoomPanel({ s, onNewRoom, onEditRoom }: { s: OfficeState; onNewR
       <div className="mt-8 flex flex-col gap-5">
         <button onClick={() => actions.set("view", "lounge")} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-white ${s.view === "lounge" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
           <span className="text-[34px] leading-none">☕</span>
-          <span>
+          <span className="min-w-0">
             <span className="block text-[14.5px] font-semibold text-[#1d1f26]">Lounge</span>
-            <span className="block text-[11.5px] text-[#7a7e89]">
-              {activeTeams} active teams · {working} agents at work
+            <span className="block truncate text-[11.5px] text-[#7a7e89]">
+              {activeTeams} active {activeTeams === 1 ? "team" : "teams"} · {working} at work
             </span>
           </span>
         </button>

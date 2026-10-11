@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { actions, leadOf, sendMessage } from "@/lib/store";
+import { actions, leadOf, sendMessage, stopAgent } from "@/lib/store";
 import type { OfficeState, Room } from "@/lib/types";
-import { Paperclip, Send } from "./icons";
+import { Paperclip, Send, Stop } from "./icons";
 
 export function ChatBar({ s, room }: { s: OfficeState; room: Room }) {
   const [text, setText] = useState("");
@@ -12,8 +12,12 @@ export function ChatBar({ s, room }: { s: OfficeState; room: Room }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const target = room.agents.find((a) => a.id === s.targetAgentId) ?? leadOf(room);
   const busy = target?.status === "working";
+  const roomBusy = room.agents.some((a) => a.status === "working");
+  // a Claude Code room runs one turn at a time; hermes agents can be messaged in parallel
+  const locked = room.backend === "claude-code" && roomBusy;
 
   const submit = () => {
+    if (locked) return;
     const body = attachment ? `${text}\n\n--- Attached file: ${attachment.name} ---\n${attachment.content.slice(0, 20000)}` : text;
     if (!body.trim() || !target) return;
     setText("");
@@ -58,7 +62,7 @@ export function ChatBar({ s, room }: { s: OfficeState; room: Room }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), submit())}
-          placeholder="Say anything — the agent replies for real"
+          placeholder={locked ? `${leadOf(room)?.name} is working — stop it or wait for the reply` : "Say anything — the agent replies for real"}
           className="w-full bg-transparent text-[14.5px] text-[#1d1f26] outline-none placeholder:text-[#9a9ea8]"
         />
       </div>
@@ -76,7 +80,17 @@ export function ChatBar({ s, room }: { s: OfficeState; room: Room }) {
       <button onClick={() => fileRef.current?.click()} className="text-[#3a3d47] hover:text-black" aria-label="Attach file">
         <Paperclip />
       </button>
-      <button onClick={submit} className="text-[#3a3d47] hover:text-black" aria-label="Send">
+      {roomBusy && (
+        <button
+          onClick={() => room.agents.filter((a) => a.status === "working").forEach((a) => stopAgent(a.id))}
+          className="grid h-7 w-7 place-items-center rounded-full bg-[#fdecec] text-[#e04848] hover:bg-[#fbdada]"
+          aria-label="Stop"
+          title="Stop"
+        >
+          <Stop />
+        </button>
+      )}
+      <button onClick={submit} disabled={locked} className="text-[#3a3d47] hover:text-black disabled:opacity-30" aria-label="Send">
         <Send />
       </button>
     </div>

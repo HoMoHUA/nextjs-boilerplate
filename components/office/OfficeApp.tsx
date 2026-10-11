@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { actions, activeRoom, getState, hydrate, sendMessage, setState, useOffice } from "@/lib/store";
 import { ChatBar } from "./ChatBar";
 import { ArrowLeft, Calendar, Logo, Office, Palette, Sliders } from "./icons";
-import { SettingsModal, TeamEditor, ThemeModal, useHermesHealth } from "./Modals";
+import { SettingsModal, TeamEditor, ThemeModal, useBackends } from "./Modals";
 import { RightPanel } from "./RightPanel";
 import { RoomPanel } from "./RoomPanel";
 import { LoungeView, ScheduleView } from "./Views";
@@ -33,6 +33,8 @@ function useTicker() {
   useEffect(() => {
     const t = setInterval(() => {
       actions.expireApprovals();
+      if (getState().fx.some((f) => Date.now() - f.ts > 8000))
+        setState((s) => ({ ...s, fx: s.fx.filter((f) => Date.now() - f.ts < 8000) }));
       const now = Date.now();
       for (const x of getState().schedules) {
         if (!x.enabled || x.nextRunAt > now) continue;
@@ -53,18 +55,37 @@ export default function OfficeApp() {
   const s = useOffice();
   const room = activeRoom(s);
   const clock = useClock(room.startedAt);
-  const health = useHermesHealth();
+  const { health, claudeCode } = useBackends();
   const [modal, setModal] = useState<null | "new" | "team" | "settings" | "theme">(null);
   const [editRoomId, setEditRoomId] = useState<string | null>(null);
 
-  useEffect(() => hydrate(), []);
+  useEffect(() => {
+    hydrate();
+    // small screens: start with the room list folded so the office gets the space
+    if (window.innerWidth < 1440) actions.set("roomsCollapsed", true);
+  }, []);
   useTicker();
 
-  const live = health?.mode === "live" && health.ok;
+  const cc = room.backend === "claude-code";
+  const badge = cc
+    ? claudeCode?.enabled
+      ? { ok: true, label: "claude code", hint: claudeCode.cwd ?? "" }
+      : { ok: false, label: claudeCode ? "disabled" : "…", hint: "CLAUDE_CODE_ENABLED=false" }
+    : health?.mode === "live"
+      ? { ok: health.ok, label: health.ok ? "live" : "offline", hint: health.error ?? health.model ?? "" }
+      : { ok: false, label: "demo", hint: "Set HERMES_API_URL to connect hermes-agent" };
+  const working = room.agents.filter((a) => a.status === "working").length;
   const title = s.view === "lounge" ? "Lounge" : s.view === "schedule" ? "Schedule room" : room.name;
   const subtitle =
     s.view === "room"
-      ? `${room.agents.length} agents · ${room.outputs.length} outputs`
+      ? [
+          `${room.agents.length} agents`,
+          `${room.outputs.length} outputs`,
+          working ? `${working} working` : "",
+          room.costUsd ? `$${room.costUsd.toFixed(2)}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")
       : s.view === "lounge"
         ? `${s.rooms.length} teams · ${s.rooms.reduce((n, r) => n + r.agents.length, 0)} agents`
         : `${s.schedules.length} schedules`;
@@ -77,7 +98,7 @@ export default function OfficeApp() {
       <div className="pointer-events-none absolute right-20 top-1/3 h-[420px] w-[420px] rounded-full bg-[#e6e9f4]/70 blur-3xl" />
 
       {/* icon rail */}
-      <nav className="relative z-10 flex w-[108px] shrink-0 flex-col items-center border-r border-[#e2e3e6] pt-10">
+      <nav className="relative z-10 flex w-[84px] shrink-0 min-[1800px]:w-[108px] flex-col items-center border-r border-[#e2e3e6] pt-10">
         <Logo />
         <div className="mt-14 flex flex-col gap-5">
           <button onClick={() => actions.set("view", "room")} className={`${railBtn} bg-[#1f4fd6] text-white shadow-[0_8px_20px_rgba(31,79,214,0.35)]`} aria-label="Office">
@@ -92,7 +113,7 @@ export default function OfficeApp() {
         </div>
       </nav>
 
-      <div className="relative z-10 flex min-w-0 flex-1 gap-8 pl-5 pr-10">
+      <div className="relative z-10 flex min-w-0 flex-1 gap-6 pl-4 pr-6 min-[1800px]:gap-8 min-[1800px]:pl-5 min-[1800px]:pr-10">
         <RoomPanel
           s={s}
           onNewRoom={() => setModal("new")}
@@ -110,16 +131,18 @@ export default function OfficeApp() {
               <p className="text-[12.5px] text-[#7a7e89]">{subtitle}</p>
             </div>
             <div className="mt-5 flex items-center gap-4 text-[14px]">
-              <span className={`flex items-center gap-1.5 ${live ? "text-[#1f9d63]" : "text-[#c98a12]"}`} title={health?.error ?? ""}>
-                <span className={`h-2 w-2 rounded-full ${live ? "bg-[#1fbf6f]" : "bg-[#f0b429]"}`} />
-                {live ? "live" : health?.mode === "live" ? "offline" : "demo"}
-              </span>
+              {s.view === "room" && (
+                <span className={`flex items-center gap-1.5 ${badge.ok ? "text-[#1f9d63]" : "text-[#c98a12]"}`} title={badge.hint}>
+                  <span className={`h-2 w-2 rounded-full ${badge.ok ? "animate-pulse bg-[#1fbf6f]" : "bg-[#f0b429]"}`} />
+                  {badge.label}
+                </span>
+              )}
               {s.view === "room" && <span className="tabular-nums text-[#4e525d]">{clock}</span>}
             </div>
           </header>
 
           <div className="relative min-h-0 flex-1">
-            {s.view === "room" && <OfficeScene room={room} selectedId={s.selectedAgentId} theme={s.theme} />}
+            {s.view === "room" && <OfficeScene room={room} selectedId={s.selectedAgentId} theme={s.theme} fx={s.fx} />}
             {s.view === "lounge" && <div className="h-full pt-6"><LoungeView s={s} /></div>}
             {s.view === "schedule" && <div className="h-full pt-6"><ScheduleView s={s} /></div>}
 
@@ -154,7 +177,7 @@ export default function OfficeApp() {
 
       {modal === "new" && <TeamEditor onClose={() => setModal(null)} />}
       {modal === "team" && editRoom && <TeamEditor key={editRoom.id} room={editRoom} onClose={() => setModal(null)} />}
-      {modal === "settings" && <SettingsModal health={health} onClose={() => setModal(null)} />}
+      {modal === "settings" && <SettingsModal health={health} claudeCode={claudeCode} onClose={() => setModal(null)} />}
       {modal === "theme" && <ThemeModal s={s} onClose={() => setModal(null)} />}
     </div>
   );

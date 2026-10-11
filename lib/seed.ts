@@ -1,4 +1,4 @@
-import type { Agent, AgentLook, OfficeState, Room } from "./types";
+import type { Agent, AgentLook, AgentSource, Backend, OfficeState, Room } from "./types";
 
 let counter = 0;
 export const uid = (p = "id") =>
@@ -30,6 +30,8 @@ const agent = (
   persona: string,
   lookIdx: number,
   isLead = false,
+  source?: AgentSource,
+  subagentId?: string,
 ): Agent => ({
   id: uid("ag"),
   name,
@@ -38,9 +40,26 @@ const agent = (
   isLead,
   status: "idle",
   look: LOOK_PRESETS[lookIdx % LOOK_PRESETS.length],
+  source,
+  subagentId,
 });
 
-const emptyRoom = (name: string, emoji: string, agents: Agent[]): Room => ({
+/** Stable look for a subagent that shows up at runtime (e.g. Claude Code's built-in Explore). */
+export function lookFor(key: string): AgentLook {
+  let h = 0;
+  for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return LOOK_PRESETS[h % LOOK_PRESETS.length];
+}
+
+export const slug = (name: string) =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "agent";
+
+const emptyRoom = (name: string, emoji: string, agents: Agent[], backend: Backend = "hermes"): Room => ({
+  backend,
   id: uid("room"),
   name,
   emoji,
@@ -131,6 +150,17 @@ export function seedState(): OfficeState {
       agent("Bea", "Admin", "You handle scheduling, docs and inboxes.", 2),
       agent("Tom", "Finance", "You track budgets and invoices.", 5),
     ]),
+    emptyRoom(
+      "Claude Code crew",
+      "🧑‍💻",
+      [
+        agent("Claude", "Main thread · Orchestrator", "You coordinate the work and delegate to subagents.", 4, true),
+        agent("Explore", "Built-in · Codebase search", "", 1, false, "builtin", "Explore"),
+        agent("Plan", "Built-in · Architect", "", 3, false, "builtin", "Plan"),
+        agent("Rex", "Code Reviewer", "You review code changes for bugs, security issues and readability. Be specific and cite file:line.", 2, false, "office", "reviewer"),
+      ],
+      "claude-code",
+    ),
   ];
   rooms[3].unread = true;
   rooms[4].unread = true;
@@ -147,5 +177,6 @@ export function seedState(): OfficeState {
     roomsCollapsed: false,
     panelCollapsed: false,
     focusOutputId: null,
+    fx: [],
   };
 }

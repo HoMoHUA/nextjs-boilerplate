@@ -10,6 +10,42 @@ export const PROTOCOL = `Office protocol — put these markers on their own line
 [[NEEDS_APPROVAL: one-sentence summary]]  when the human must approve something before it goes live.
 [[DELEGATE: AgentName | task]]  hand a sub-task to a teammate (lead only).`;
 
+const MARKERS = `Office protocol — put these markers on their own lines when relevant. They are hidden from the chat and drive the office UI:
+[[STEP: short title | one-line description]]  before each meaningful step of work you take.
+[[OUTPUT: title]]  when your reply contains a deliverable (draft, plan, code, report). Put the deliverable right after the marker.
+[[NEEDS_APPROVAL: one-sentence summary]]  when the human must approve something before it goes live.`;
+
+export const subagentType = (a: Agent) => a.subagentId || a.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+/** Appended to Claude Code's own system prompt for the main thread (the room's lead). */
+export function claudeCodeSystemAppend(room: Room, lead: Agent): string {
+  const mates = room.agents
+    .filter((a) => a.id !== lead.id)
+    .map((a) => `- ${a.name} → subagent_type "${subagentType(a)}": ${a.title}`)
+    .join("\n");
+  return [
+    `In this session you are ${lead.name}, ${lead.title}, leading the "${room.name}" team in a virtual office. ${lead.persona}`,
+    mates ? `Your teammates are Claude Code subagents. Delegate work to them with the Agent tool:\n${mates}` : "",
+    "Delegate whenever a teammate fits the task; run independent sub-tasks in parallel. Reply concisely in the language the human writes in.",
+    MARKERS,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** Subagent definitions for teammates defined in the office (file and built-in ones already exist in Claude Code). */
+export function claudeCodeSubagents(room: Room, lead: Agent) {
+  const out: Record<string, { description: string; prompt: string }> = {};
+  for (const a of room.agents) {
+    if (a.id === lead.id || (a.source && a.source !== "office")) continue;
+    out[subagentType(a)] = {
+      description: `${a.name} — ${a.title}. ${a.persona}`.trim(),
+      prompt: [`You are ${a.name}, ${a.title}, on the "${room.name}" team.`, a.persona, MARKERS].filter(Boolean).join("\n\n"),
+    };
+  }
+  return out;
+}
+
 export function systemPrompt(room: Room, agent: Agent): string {
   const roster = room.agents
     .map((a) => `- ${a.name}${a.isLead ? " (LEAD)" : ""}: ${a.title}`)

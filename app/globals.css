@@ -18,3 +18,14 @@ body {
   background: #d6d8dd;
   border-radius: 6px;
 }
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
