@@ -29,15 +29,16 @@ interface Props {
   roomId: string;
   approval: Approval;
   agent?: Agent;
-  variant: "bubble" | "panel";
+  variant: "bubble" | "panel" | "compact";
 }
 
 export function ApprovalCard({ roomId, approval, agent, variant }: Props) {
   const { label } = useCountdown(approval.expiresAt);
-  const bubble = variant === "bubble";
+  const compact = variant === "compact";
+  const bubble = variant === "bubble" || compact;
 
   return (
-    <div className={bubble ? "w-[370px]" : ""}>
+    <div className={compact ? "w-[236px]" : bubble ? "w-[370px]" : ""}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <NeedsYouBadge />
@@ -51,7 +52,7 @@ export function ApprovalCard({ roomId, approval, agent, variant }: Props) {
       </div>
 
       <div className={`mt-3 flex gap-3 ${bubble ? "" : "mt-4"}`}>
-        {bubble && agent && (
+        {variant === "bubble" && agent && (
           <div className="flex shrink-0 flex-col items-center">
             <AgentAvatar look={agent.look} size={46} />
             <span className="mt-0.5 flex items-center gap-1 text-[12.5px] font-medium text-[#3b3f4b]">
@@ -60,19 +61,22 @@ export function ApprovalCard({ roomId, approval, agent, variant }: Props) {
             </span>
           </div>
         )}
-        <p className={`leading-[1.5] text-[#1d1f26] ${bubble ? "text-[14.5px]" : "text-[14.5px]"}`}>{approval.text}</p>
+        <p className={`leading-[1.5] text-[#1d1f26] ${compact ? "line-clamp-3 text-[12.5px]" : "text-[14.5px]"}`}>
+          {compact && agent && <b className="font-semibold">{agent.name}: </b>}
+          {approval.text}
+        </p>
       </div>
 
-      <div className={`mt-4 flex gap-2 ${bubble ? "" : "justify-end"}`}>
+      <div className={`flex gap-2 ${compact ? "mt-2.5" : "mt-4"} ${bubble ? "" : "justify-end"}`}>
         <button
           onClick={() => actions.reviewFirst(roomId, approval.id)}
-          className={`${bubble ? "flex-1" : "px-4"} rounded-full border border-[#e3e5ea] bg-white py-2 text-[14.5px] text-[#3a3d47] transition hover:bg-[#f5f6f8]`}
+          className={`${bubble ? "flex-1" : "px-4"} rounded-full border border-[#e3e5ea] bg-white ${compact ? "py-1.5 text-[12.5px]" : "py-2 text-[14.5px]"} text-[#3a3d47] transition hover:bg-[#f5f6f8]`}
         >
           Review first
         </button>
         <button
           onClick={() => actions.approve(roomId, approval.id)}
-          className={`${bubble ? "flex-1" : "px-4"} rounded-full border border-[#e3e5ea] bg-white py-2 text-[14.5px] font-semibold text-[#2156f3] transition hover:bg-[#eef3ff]`}
+          className={`${bubble ? "flex-1" : "px-4"} rounded-full border border-[#e3e5ea] bg-white ${compact ? "py-1.5 text-[12.5px]" : "py-2 text-[14.5px]"} font-semibold text-[#2156f3] transition hover:bg-[#eef3ff]`}
         >
           Approve
         </button>

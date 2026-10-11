@@ -211,6 +211,124 @@ function Thread({ room }: { room: Room }) {
   );
 }
 
+const TABS = [
+  ["inspector", "Inspector"],
+  ["output", "Output"],
+  ["thread", "Thread"],
+] as const;
+
+/** Inspector / Output / Thread content for the active room (shared by the side panel and the mobile sheet). */
+export function PanelContent({ s, room }: { s: OfficeState; room: Room }) {
+  return (
+    <>
+      {s.view !== "room" && (
+        <button
+          onClick={() => actions.selectRoom(room.id)}
+          className="mb-4 flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[12.5px] text-[#3a3d47] shadow-sm hover:bg-white"
+        >
+          <span>{room.emoji}</span>
+          <span className="font-semibold">{room.name}</span>
+          <span className="text-[#9a9ea8]">· open room</span>
+        </button>
+      )}
+      {s.rightTab === "inspector" && <Inspector s={s} room={room} />}
+      {s.rightTab === "output" && <Outputs s={s} room={room} />}
+      {s.rightTab === "thread" && <Thread room={room} />}
+    </>
+  );
+}
+
+/** Bottom sheet for phones: a peek bar with the tabs that expands over the office. */
+export function MobileSheet({ s, room, side = false }: { s: OfficeState; room: Room; side?: boolean }) {
+  const open = !s.panelCollapsed;
+  const needs = room.approvals.filter((a) => a.status === "pending").length;
+  const startY = useRef<number | null>(null);
+  if (side) return <SidePanel s={s} room={room} open={open} needs={needs} />;
+  return (
+    <div
+      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-[22px] border-t border-white/70 bg-[#f6f6f4]/95 shadow-[0_-12px_30px_rgba(20,22,30,0.08)] backdrop-blur-md transition-[height] duration-300 ease-out ${
+        open ? "h-[72%]" : "h-[60px]"
+      }`}
+      onTouchStart={(e) => (startY.current = e.touches[0].clientY)}
+      onTouchEnd={(e) => {
+        if (startY.current === null) return;
+        const dy = e.changedTouches[0].clientY - startY.current;
+        startY.current = null;
+        if (dy < -40 && !open) actions.set("panelCollapsed", false);
+        if (dy > 60 && open) actions.set("panelCollapsed", true);
+      }}
+    >
+      <button onClick={() => actions.set("panelCollapsed", open)} className="mx-auto mt-1.5 h-1.5 w-11 shrink-0 rounded-full bg-[#cfd2d8]" aria-label={open ? "Collapse panel" : "Expand panel"} />
+      <div className="flex shrink-0 items-center gap-1 px-3 pt-1.5">
+        {TABS.map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => {
+              actions.set("rightTab", id);
+              actions.set("panelCollapsed", false);
+            }}
+            className={`relative h-9 rounded-full px-4 text-[13.5px] transition ${open && s.rightTab === id ? "bg-[#16171d] font-semibold text-white" : "text-[#2a2d36]"}`}
+          >
+            {label}
+            {id === "inspector" && needs > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#ea2b2b] px-1 text-[10px] font-bold text-white">{needs}</span>
+            )}
+          </button>
+        ))}
+        <button onClick={() => actions.set("panelCollapsed", open)} className="ml-auto grid h-9 w-9 place-items-center rounded-full bg-white/80 shadow-sm" aria-label="Toggle panel">
+          <ChevronRight className={`transition-transform ${open ? "rotate-90" : "-rotate-90"}`} />
+        </button>
+      </div>
+      {open && (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-4">
+          <PanelContent s={s} room={room} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TAB_ICON: Record<(typeof TABS)[number][0], string> = { inspector: "🔍", output: "📄", thread: "💬" };
+
+/** Landscape phones: the panel slides in from the right edge instead of from the bottom. */
+function SidePanel({ s, room, open, needs }: { s: OfficeState; room: Room; open: boolean; needs: number }) {
+  return (
+    <div
+      className={`absolute inset-y-0 right-0 z-30 flex border-l border-white/70 bg-[#f6f6f4]/95 shadow-[-12px_0_30px_rgba(20,22,30,0.08)] backdrop-blur-md transition-[width] duration-300 ${
+        open ? "w-[min(400px,62vw)]" : "w-[56px]"
+      }`}
+    >
+      <div className="flex w-[56px] shrink-0 flex-col items-center gap-2 py-2">
+        <button onClick={() => actions.set("panelCollapsed", open)} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 shadow-sm" aria-label="Toggle panel">
+          <ChevronLeft className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+        {TABS.map(([id, label]) => (
+          <button
+            key={id}
+            title={label}
+            aria-label={label}
+            onClick={() => {
+              actions.set("rightTab", id);
+              actions.set("panelCollapsed", false);
+            }}
+            className={`relative grid h-9 w-9 place-items-center rounded-full text-[16px] ${open && s.rightTab === id ? "bg-[#16171d]" : "bg-white/80"}`}
+          >
+            {TAB_ICON[id]}
+            {id === "inspector" && needs > 0 && (
+              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#ea2b2b] px-1 text-[10px] font-bold text-white">{needs}</span>
+            )}
+          </button>
+        ))}
+      </div>
+      {open && (
+        <div className="min-w-0 flex-1 overflow-y-auto overscroll-contain py-3 pr-3">
+          <PanelContent s={s} room={room} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RightPanel({ s, room }: { s: OfficeState; room: Room }) {
   if (s.panelCollapsed)
     return (
@@ -221,15 +339,10 @@ export function RightPanel({ s, room }: { s: OfficeState; room: Room }) {
       </div>
     );
 
-  const tabs = [
-    ["inspector", "Inspector"],
-    ["output", "Output"],
-    ["thread", "Thread"],
-  ] as const;
   return (
-    <aside className="flex w-[340px] shrink-0 flex-col pt-10 min-[1800px]:w-[380px]">
+    <aside className="flex w-[340px] shrink-0 flex-col pt-10 max-[1279px]:absolute max-[1279px]:inset-y-0 max-[1279px]:right-0 max-[1279px]:z-40 max-[1279px]:bg-[#f4f4f2]/95 max-[1279px]:px-5 max-[1279px]:shadow-[-20px_0_40px_rgba(20,22,30,0.08)] max-[1279px]:backdrop-blur-md min-[1800px]:w-[380px]">
       <div className="flex items-center gap-2">
-        {tabs.map(([id, label]) => (
+        {TABS.map(([id, label]) => (
           <button
             key={id}
             onClick={() => actions.set("rightTab", id)}
@@ -243,19 +356,7 @@ export function RightPanel({ s, room }: { s: OfficeState; room: Room }) {
         </button>
       </div>
       <div className="mt-8 flex-1 overflow-y-auto pb-8 pr-1">
-        {s.view !== "room" && (
-          <button
-            onClick={() => actions.selectRoom(room.id)}
-            className="mb-4 flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[12.5px] text-[#3a3d47] shadow-sm hover:bg-white"
-          >
-            <span>{room.emoji}</span>
-            <span className="font-semibold">{room.name}</span>
-            <span className="text-[#9a9ea8]">· open room</span>
-          </button>
-        )}
-        {s.rightTab === "inspector" && <Inspector s={s} room={room} />}
-        {s.rightTab === "output" && <Outputs s={s} room={room} />}
-        {s.rightTab === "thread" && <Thread room={room} />}
+        <PanelContent s={s} room={room} />
       </div>
     </aside>
   );

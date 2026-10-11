@@ -3,7 +3,7 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Vector3, type Group } from "three";
-import type { AgentLook, AgentStatus, HairStyle, Pose } from "@/lib/types";
+import type { AgentLook, AgentStatus, HairStyle } from "@/lib/types";
 
 const Mat = ({ color, rough = 0.65 }: { color: string; rough?: number }) => (
   <meshStandardMaterial color={color} roughness={rough} metalness={0} />
@@ -92,70 +92,119 @@ function Hair({ look }: { look: AgentLook }) {
   }
 }
 
-function Head({ look, eyesRef }: { look: AgentLook; eyesRef: React.RefObject<Group | null> }) {
+function Head({ look, eyesRef, browsRef }: { look: AgentLook; eyesRef: React.RefObject<Group | null>; browsRef: React.RefObject<Group | null> }) {
   return (
     <group>
-      <mesh castShadow>
-        <sphereGeometry args={[0.46, 32, 24]} />
+      <mesh castShadow scale={[1, 0.95, 0.97]}>
+        <sphereGeometry args={[0.44, 36, 28]} />
         <Mat color={look.skin} rough={0.55} />
       </mesh>
+      {/* ears */}
       {[-1, 1].map((s) => (
-        <group key={s}>
-          <mesh position={[s * 0.45, -0.02, 0]}>
-            <sphereGeometry args={[0.09, 12, 10]} />
-            <Mat color={look.skin} />
-          </mesh>
-
-          {/* cheeks */}
-          <mesh position={[s * 0.26, -0.12, 0.35]} scale={[1, 0.6, 0.4]}>
-            <sphereGeometry args={[0.07, 12, 10]} />
-            <meshStandardMaterial color="#f29a8a" transparent opacity={0.55} />
-          </mesh>
-          {look.glasses && (
-            <mesh position={[s * 0.15, 0.0, 0.47]}>
-              <torusGeometry args={[0.1, 0.014, 8, 28]} />
-              <meshStandardMaterial color="#e8e8ea" metalness={0.3} roughness={0.3} />
-            </mesh>
-          )}
-        </group>
+        <mesh key={s} position={[s * 0.43, -0.03, 0.02]} scale={[0.6, 1, 0.8]}>
+          <sphereGeometry args={[0.09, 14, 12]} />
+          <Mat color={look.skin} rough={0.55} />
+        </mesh>
       ))}
-      {/* eyes (scaled on y to blink) */}
-      <group ref={eyesRef}>
+      {/* eyes: white, iris, highlight (the group is scaled on y to blink) */}
+      <group ref={eyesRef} position={[0, 0.0, 0]}>
         {[-1, 1].map((s) => (
-          <group key={s}>
-            <mesh position={[s * 0.15, 0.0, 0.42]}>
-              <sphereGeometry args={[0.055, 14, 12]} />
-              <meshStandardMaterial color="#221a17" roughness={0.2} />
+          <group key={s} position={[s * 0.155, 0, 0.375]}>
+            <mesh scale={[1, 1.18, 0.55]}>
+              <sphereGeometry args={[0.072, 18, 14]} />
+              <meshStandardMaterial color="#ffffff" roughness={0.3} />
             </mesh>
-            <mesh position={[s * 0.15 + 0.018, 0.022, 0.468]}>
+            <mesh position={[0, -0.006, 0.03]} scale={[1, 1.1, 0.6]}>
+              <sphereGeometry args={[0.05, 16, 12]} />
+              <meshStandardMaterial color="#2b1d18" roughness={0.15} />
+            </mesh>
+            <mesh position={[0.016, 0.02, 0.06]}>
               <sphereGeometry args={[0.014, 8, 8]} />
               <meshBasicMaterial color="#ffffff" />
             </mesh>
           </group>
         ))}
       </group>
-      {look.glasses && (
-        <mesh position={[0, 0.02, 0.5]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.012, 0.012, 0.1, 6]} />
-          <meshStandardMaterial color="#e8e8ea" />
+      {/* eyebrows */}
+      <group ref={browsRef}>
+        {[-1, 1].map((s) => (
+          <mesh key={s} position={[s * 0.155, 0.125, 0.395]} rotation={[0, 0, Math.PI / 2 + s * 0.12]}>
+            <capsuleGeometry args={[0.016, 0.075, 4, 8]} />
+            <Mat color={look.hair} rough={0.9} />
+          </mesh>
+        ))}
+      </group>
+      {/* cheeks */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 0.25, -0.1, 0.33]} scale={[1, 0.6, 0.35]}>
+          <sphereGeometry args={[0.065, 12, 10]} />
+          <meshStandardMaterial color="#f29a8a" transparent opacity={0.5} depthWrite={false} />
         </mesh>
+      ))}
+      {/* nose + smile */}
+      <mesh position={[0, -0.055, 0.425]} scale={[1.1, 0.9, 1]}>
+        <sphereGeometry args={[0.032, 10, 8]} />
+        <Mat color={look.skin} rough={0.5} />
+      </mesh>
+      <mesh position={[0, -0.125, 0.395]} rotation={[0.25, 0, Math.PI]}>
+        <torusGeometry args={[0.048, 0.011, 6, 16, Math.PI]} />
+        <meshStandardMaterial color="#8c3b32" roughness={0.5} />
+      </mesh>
+      {look.glasses && (
+        <group position={[0, 0.0, 0.43]}>
+          {[-1, 1].map((s) => (
+            <group key={s}>
+              <mesh position={[s * 0.155, 0, 0]}>
+                <torusGeometry args={[0.092, 0.013, 8, 28]} />
+                <meshStandardMaterial color="#d8d9de" metalness={0.4} roughness={0.3} />
+              </mesh>
+              <mesh position={[s * 0.155, 0, -0.005]}>
+                <circleGeometry args={[0.088, 24]} />
+                <meshStandardMaterial color="#dff1ff" transparent opacity={0.18} depthWrite={false} />
+              </mesh>
+              {/* temple arm back to the ear */}
+              <mesh position={[s * 0.33, 0.01, -0.18]} rotation={[0, s * 0.35, 0]}>
+                <boxGeometry args={[0.012, 0.012, 0.36]} />
+                <meshStandardMaterial color="#d8d9de" metalness={0.4} roughness={0.3} />
+              </mesh>
+            </group>
+          ))}
+          <mesh position={[0, 0.02, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.01, 0.01, 0.075, 6]} />
+            <meshStandardMaterial color="#d8d9de" />
+          </mesh>
+        </group>
       )}
-      <mesh position={[0, -0.08, 0.455]}>
-        <sphereGeometry args={[0.035, 10, 8]} />
-        <Mat color={look.skin} />
-      </mesh>
-      <mesh position={[0, -0.19, 0.42]} rotation={[0, 0, Math.PI / 2]}>
-        <capsuleGeometry args={[0.012, 0.06, 4, 8]} />
-        <meshStandardMaterial color="#8c3b32" />
-      </mesh>
       <Hair look={look} />
+      {look.hairStyle === "buzz" && <Headphones />}
     </group>
   );
 }
 
-/** Mutable motion state shared with the scene (walking is driven from outside). */
+function Headphones() {
+  return (
+    <group>
+      <mesh rotation={[0, Math.PI / 2, 0]} position={[0, 0.06, 0]}>
+        <torusGeometry args={[0.47, 0.03, 8, 32, Math.PI]} />
+        <meshStandardMaterial color="#2d2f36" roughness={0.4} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 0.47, 0.02, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.11, 0.11, 0.08, 20]} />
+          <meshStandardMaterial color="#2d2f36" roughness={0.4} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** Mutable motion state shared with the scene (walking and sitting are driven from outside). */
 export interface Motion {
   walking: boolean;
+  /** true while the agent is in their chair */
+  seated: boolean;
+  /** Talking with a teammate after walking over (gesturing). */
+  talking: boolean;
   /** World-space point the head glances at, or null. */
   look: Vector3 | null;
   /** Date.now() of the last celebration, 0 if none. */
@@ -164,7 +213,6 @@ export interface Motion {
 
 export interface CharacterProps {
   look: AgentLook;
-  pose: Pose;
   status: AgentStatus;
   seed: number;
   motion: React.RefObject<Motion>;
@@ -173,87 +221,120 @@ export interface CharacterProps {
 }
 
 const tmp = new Vector3();
+const HIP = 0.6;
 
-export function Character({ look, pose, status, seed, motion, onClick, children }: CharacterProps) {
+type Joint = Group | null;
+const approach = (cur: number, target: number, k: number) => cur + (target - cur) * k;
+
+/**
+ * A chibi agent with jointed legs (hip/knee) and arms (shoulder/elbow), so it
+ * can sit at its desk, type, stand up, walk over, wave and cheer.
+ */
+export function Character({ look, status, seed, motion, onClick, children }: CharacterProps) {
   const root = useRef<Group>(null);
   const body = useRef<Group>(null);
+  const torso = useRef<Group>(null);
   const head = useRef<Group>(null);
   const eyes = useRef<Group>(null);
-  const armL = useRef<Group>(null);
-  const armR = useRef<Group>(null);
-  const legL = useRef<Group>(null);
-  const legR = useRef<Group>(null);
+  const brows = useRef<Group>(null);
+  const hips = useRef<Joint[]>([null, null]);
+  const knees = useRef<Joint[]>([null, null]);
+  const shoulders = useRef<Joint[]>([null, null]);
+  const elbows = useRef<Joint[]>([null, null]);
+  const sit = useRef(1); // 1 = seated, 0 = standing (smoothed)
 
-  const seated = pose !== "stand";
-  const hip = 0.62;
+  const shortSleeves = look.hairStyle === "curly" || look.hairStyle === "bun" || look.hairStyle === "fluffy";
 
   useFrame(({ clock }, dt) => {
     const t = clock.elapsedTime + seed * 1.7;
     const m = motion.current;
-    const walking = !seated && m.walking;
+    const k = Math.min(1, dt * 8);
+    sit.current = approach(sit.current, m.seated ? 1 : 0, Math.min(1, dt * 5));
+    const seated = sit.current;
+    const walking = m.walking;
     const working = status === "working";
     const sinceCheer = (Date.now() - m.celebrateAt) / 1000;
     const cheering = sinceCheer >= 0 && sinceCheer < 1.6;
 
+    // body bob
     if (body.current) {
-      let y = Math.sin(t * 2) * 0.012;
-      if (working) y += Math.abs(Math.sin(t * 6)) * 0.02;
-      if (walking) y += Math.abs(Math.sin(t * 9)) * 0.05;
-      if (cheering) y += Math.max(0, Math.sin(sinceCheer * Math.PI * 2.5)) * 0.35 * (1 - sinceCheer / 1.6);
+      let y = Math.sin(t * 2) * 0.008;
+      if (walking) y += Math.abs(Math.sin(t * 9)) * 0.04;
+      if (cheering) y += Math.max(0, Math.sin(sinceCheer * Math.PI * 2.5)) * 0.3 * (1 - sinceCheer / 1.6) * (1 - seated * 0.5);
       body.current.position.y = y;
     }
-
-    // blink every few seconds
-    if (eyes.current) {
-      const cycle = (t * 0.31 + seed * 0.13) % 1;
-      eyes.current.scale.y = cycle > 0.965 ? 0.12 : 1;
+    if (torso.current) {
+      // lean in to type, lean back to relax
+      const lean = seated * (working ? 0.12 : status === "idle" ? -0.08 : 0) + (walking ? 0.06 : 0);
+      torso.current.rotation.x = approach(torso.current.rotation.x, lean, k);
     }
 
+    // legs: hip/knee angles blend between sitting and standing; walking swings them
+    const swing = walking ? Math.sin(t * 9) : 0;
+    for (let i = 0; i < 2; i++) {
+      const s = i === 0 ? 1 : -1;
+      const hip = hips.current[i];
+      const knee = knees.current[i];
+      const tap = seated > 0.5 && working ? Math.max(0, Math.sin(t * 3 + i * 2)) * 0.06 : 0;
+      if (hip) hip.rotation.x = approach(hip.rotation.x, -Math.PI / 2 * seated + swing * s * 0.6 * (1 - seated), k);
+      if (knee) knee.rotation.x = approach(knee.rotation.x, (Math.PI / 2) * seated + (walking ? Math.max(0, -swing * s) * 0.9 : 0) - tap, k);
+    }
+
+    // blink every few seconds; raise brows when waiting on the human
+    if (eyes.current) eyes.current.scale.y = (t * 0.31 + seed * 0.13) % 1 > 0.965 ? 0.1 : 1;
+    if (brows.current) brows.current.position.y = approach(brows.current.position.y, status === "needs_you" ? 0.03 : 0, k);
+
     if (head.current && root.current) {
-      let yaw = status === "needs_you" ? Math.sin(t * 1.4) * 0.25 + 0.2 : Math.sin(t * 0.5) * 0.08;
-      // glance at whoever is working, on and off
-      if (m.look && !walking && Math.sin(t * 0.45) > 0.1) {
+      let yaw = status === "needs_you" ? 0.55 + Math.sin(t * 1.4) * 0.15 : Math.sin(t * 0.5) * 0.1;
+      if (m.look && !walking && Math.sin(t * 0.45) > 0.2) {
         root.current.getWorldPosition(tmp);
         const world = Math.atan2(m.look.x - tmp.x, m.look.z - tmp.z);
         let rel = world - root.current.rotation.y;
         rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-        yaw = Math.max(-0.9, Math.min(0.9, rel));
+        yaw = Math.max(-1, Math.min(1, rel));
       }
-      head.current.rotation.y += (yaw - head.current.rotation.y) * Math.min(1, dt * 4);
-      head.current.rotation.z = Math.sin(t * 0.9) * 0.05;
-      head.current.rotation.x = pose === "type" || pose === "tablet" ? 0.15 : Math.sin(t * 0.7) * 0.04;
+      head.current.rotation.y = approach(head.current.rotation.y, yaw, Math.min(1, dt * 4));
+      head.current.rotation.z = Math.sin(t * 0.9) * 0.04;
+      head.current.rotation.x = approach(head.current.rotation.x, working && seated > 0.5 ? 0.12 : Math.sin(t * 0.7) * 0.04, k);
     }
 
-    if (legL.current && legR.current) {
-      const swing = walking ? Math.sin(t * 9) * 0.55 : 0;
-      legL.current.rotation.x += (swing - legL.current.rotation.x) * Math.min(1, dt * 12);
-      legR.current.rotation.x += (-swing - legR.current.rotation.x) * Math.min(1, dt * 12);
-    }
-
-    if (armL.current && armR.current) {
+    // arms: [shoulderX, shoulderZ(outward), elbowX] per side
+    for (let i = 0; i < 2; i++) {
+      const s = i === 0 ? 1 : -1; // +1 = right (+x)
+      let sx = 0.05;
+      let sz = 0.12;
+      let ex = -0.2;
       if (cheering) {
-        armL.current.rotation.set(0, 0, 2.6 + Math.sin(t * 14) * 0.2);
-        armR.current.rotation.set(0, 0, -2.6 - Math.sin(t * 14) * 0.2);
+        sx = 0;
+        sz = 2.6 + Math.sin(t * 14) * 0.2;
+        ex = -0.3;
       } else if (walking) {
-        armL.current.rotation.set(-Math.sin(t * 9) * 0.5, 0, 0.12);
-        armR.current.rotation.set(Math.sin(t * 9) * 0.5, 0, -0.12);
-      } else if (status === "needs_you" && !seated) {
-        armL.current.rotation.set(0, 0, 0.15);
-        armR.current.rotation.set(0, 0, -2.5 + Math.sin(t * 7) * 0.35);
-      } else if (pose === "type") {
-        armL.current.rotation.set(-1.25 + Math.sin(t * (working ? 16 : 5)) * 0.08, 0, 0.12);
-        armR.current.rotation.set(-1.25 + Math.cos(t * (working ? 16 : 5)) * 0.08, 0, -0.12);
-      } else if (pose === "tablet") {
-        armL.current.rotation.set(-0.95, 0, 0.35);
-        armR.current.rotation.set(-0.95 + Math.sin(t * 3) * (working ? 0.1 : 0.02), 0, -0.35);
-      } else if (pose === "stand") {
-        // presenting gesture
-        armL.current.rotation.set(Math.sin(t * 1.1) * 0.05, 0, 0.18);
-        armR.current.rotation.set(-0.5 + Math.sin(t * 1.6) * 0.25, 0, -0.6 + Math.sin(t * 1.6) * 0.15);
-      } else {
-        armL.current.rotation.set(-0.55 + Math.sin(t * 1.2) * 0.04, 0, 0.12);
-        armR.current.rotation.set(-0.55 + Math.cos(t * 1.2) * 0.04, 0, -0.12);
+        sx = -swing * s * 0.55;
+        ex = -0.45;
+      } else if (m.talking && s === 1) {
+        sx = -1.1 + Math.sin(t * 2.4) * 0.2;
+        sz = 0.2;
+        ex = -0.5 + Math.sin(t * 3.1) * 0.25;
+      } else if (status === "needs_you" && s === 1) {
+        sx = -0.2;
+        sz = 2.5;
+        ex = -0.6 + Math.sin(t * 8) * 0.45;
+      } else if (seated > 0.5 && working) {
+        sx = -0.45;
+        sz = 0.18;
+        ex = -1.15 + Math.sin(t * 15 + i * 1.7) * 0.07;
+      } else if (seated > 0.5) {
+        sx = -0.25;
+        sz = 0.2;
+        ex = -1.0 + Math.sin(t * 1.2 + i) * 0.03;
       }
+      const sh = shoulders.current[i];
+      const el = elbows.current[i];
+      if (sh) {
+        sh.rotation.x = approach(sh.rotation.x, sx, k);
+        sh.rotation.z = approach(sh.rotation.z, sz * s, k);
+      }
+      if (el) el.rotation.x = approach(el.rotation.x, ex, k);
     }
   });
 
@@ -271,74 +352,93 @@ export function Character({ look, pose, status, seed, motion, onClick, children 
         }}
         onPointerOut={() => (document.body.style.cursor = "")}
       >
-        {/* legs */}
-        {[-1, 1].map((s) =>
-          seated ? (
-            <group key={s}>
-              <mesh position={[s * 0.13, hip, 0.2]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-                <capsuleGeometry args={[0.12, 0.32, 6, 12]} />
-                <Mat color={look.pants} />
-              </mesh>
-              <mesh position={[s * 0.13, 0.33, 0.42]} castShadow>
-                <capsuleGeometry args={[0.1, 0.3, 6, 12]} />
-                <Mat color={look.pants} />
-              </mesh>
-              <mesh position={[s * 0.13, 0.07, 0.5]} castShadow>
-                <boxGeometry args={[0.18, 0.12, 0.3]} />
-                <Mat color="#3a3434" />
-              </mesh>
-            </group>
-          ) : (
-            <group key={s} ref={s < 0 ? legL : legR} position={[s * 0.13, hip, 0]}>
-              <mesh position={[0, -0.24, 0]} castShadow>
-                <capsuleGeometry args={[0.11, 0.4, 6, 12]} />
-                <Mat color={look.pants} />
-              </mesh>
-              <mesh position={[0, 0.07 - hip, 0.06]} castShadow>
-                <boxGeometry args={[0.18, 0.12, 0.3]} />
-                <Mat color="#3a3434" />
-              </mesh>
-            </group>
-          ),
-        )}
-
-        {/* torso */}
-        <mesh position={[0, hip + 0.32, 0]} castShadow>
-          <capsuleGeometry args={[0.27, 0.32, 8, 20]} />
-          <Mat color={look.shirt} />
-        </mesh>
-        <mesh position={[0, hip + 0.42, 0.2]} scale={[1, 1.2, 0.5]}>
-          <sphereGeometry args={[0.14, 14, 12]} />
-          <Mat color={look.accent} />
+        {/* pelvis */}
+        <mesh position={[0, HIP + 0.02, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <capsuleGeometry args={[0.17, 0.2, 8, 16]} />
+          <Mat color={look.pants} />
         </mesh>
 
-        {/* arms */}
-        {[
-          [-1, armL],
-          [1, armR],
-        ].map(([s, ref]) => (
-          <group key={s as number} ref={ref as React.RefObject<Group>} position={[(s as number) * 0.33, hip + 0.55, 0]}>
-            <mesh position={[0, -0.2, 0]} castShadow>
-              <capsuleGeometry args={[0.085, 0.3, 6, 12]} />
-              <Mat color={look.shirt} />
+        {/* legs: hip joint → thigh → knee joint → shin → shoe */}
+        {[1, -1].map((s, i) => (
+          <group key={s} ref={(el) => { hips.current[i] = el; }} position={[s * 0.13, HIP, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh position={[0, -0.15, 0]} castShadow>
+              <capsuleGeometry args={[0.105, 0.2, 6, 14]} />
+              <Mat color={look.pants} />
             </mesh>
-            <mesh position={[0, -0.42, 0]} castShadow>
-              <sphereGeometry args={[0.085, 12, 10]} />
-              <Mat color={look.skin} />
-            </mesh>
+            <group ref={(el) => { knees.current[i] = el; }} position={[0, -0.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <mesh position={[0, -0.12, 0]} castShadow>
+                <capsuleGeometry args={[0.09, 0.17, 6, 14]} />
+                <Mat color={look.pants} />
+              </mesh>
+              <group position={[0, -0.255, 0.05]}>
+                <mesh scale={[0.115, 0.075, 0.17]} castShadow>
+                  <sphereGeometry args={[1, 16, 12]} />
+                  <Mat color="#3a3434" rough={0.45} />
+                </mesh>
+                <mesh position={[0, -0.04, 0]}>
+                  <boxGeometry args={[0.2, 0.025, 0.3]} />
+                  <Mat color="#f2efe9" />
+                </mesh>
+              </group>
+            </group>
           </group>
         ))}
 
-        <group ref={head} position={[0, hip + 1.1, 0]}>
-          <Head look={look} eyesRef={eyes} />
-        </group>
-
-        {pose === "tablet" && (
-          <mesh position={[0, hip + 0.35, 0.45]} rotation={[-0.9, 0, 0]} castShadow>
-            <boxGeometry args={[0.5, 0.36, 0.03]} />
-            <meshStandardMaterial color="#d9dde6" roughness={0.3} />
+        {/* torso (pivots at the hips to lean) */}
+        <group ref={torso} position={[0, HIP + 0.05, 0]}>
+          <mesh position={[0, 0.3, 0]} castShadow>
+            <capsuleGeometry args={[0.255, 0.28, 10, 22]} />
+            <Mat color={look.shirt} />
           </mesh>
-        )}
+          {/* belt */}
+          <mesh position={[0, 0.06, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.235, 0.03, 8, 28]} />
+            <Mat color={look.pants} />
+          </mesh>
+          {/* inner tee / front panel */}
+          <mesh position={[0, 0.36, 0.2]} scale={[1, 1.35, 0.45]}>
+            <sphereGeometry args={[0.12, 16, 12]} />
+            <Mat color={look.accent} />
+          </mesh>
+          {/* collar */}
+          <mesh position={[0, 0.555, 0]} rotation={[Math.PI / 2 - 0.15, 0, 0]}>
+            <torusGeometry args={[0.13, 0.04, 8, 24]} />
+            <Mat color={look.shirt} rough={0.5} />
+          </mesh>
+          {/* neck */}
+          <mesh position={[0, 0.62, 0]}>
+            <cylinderGeometry args={[0.075, 0.08, 0.12, 14]} />
+            <Mat color={look.skin} />
+          </mesh>
+
+          {/* arms: shoulder joint → upper arm → elbow joint → forearm → hand */}
+          {[1, -1].map((s, i) => (
+            <group key={s} ref={(el) => { shoulders.current[i] = el; }} position={[s * 0.3, 0.5, 0]}>
+              <mesh castShadow>
+                <sphereGeometry args={[0.09, 14, 12]} />
+                <Mat color={look.shirt} />
+              </mesh>
+              <mesh position={[0, -0.13, 0]} castShadow>
+                <capsuleGeometry args={[0.078, 0.15, 6, 12]} />
+                <Mat color={look.shirt} />
+              </mesh>
+              <group ref={(el) => { elbows.current[i] = el; }} position={[0, -0.26, 0]}>
+                <mesh position={[0, -0.1, 0]} castShadow>
+                  <capsuleGeometry args={[0.068, 0.13, 6, 12]} />
+                  <Mat color={shortSleeves ? look.skin : look.shirt} />
+                </mesh>
+                <mesh position={[0, -0.22, 0.01]} castShadow>
+                  <sphereGeometry args={[0.078, 14, 12]} />
+                  <Mat color={look.skin} />
+                </mesh>
+              </group>
+            </group>
+          ))}
+
+          <group ref={head} position={[0, 1.04, 0]}>
+            <Head look={look} eyesRef={eyes} browsRef={brows} />
+          </group>
+        </group>
       </group>
       {children}
     </group>

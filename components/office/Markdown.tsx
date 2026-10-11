@@ -1,11 +1,12 @@
 import { Fragment } from "react";
 
-/** Inline markdown: **bold**, `code`, [text](url). */
+/** Inline markdown: **bold**, _italic_, `code`, [text](url). */
 function inline(text: string, key: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g);
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\)|(?<![\w*])[_*][^_*\n]+[_*](?![\w*]))/g);
   return parts.map((p, i) => {
     const k = `${key}-${i}`;
     if (/^\*\*[^*]+\*\*$/.test(p)) return <strong key={k} className="font-semibold text-[#1d1f26]">{p.slice(2, -2)}</strong>;
+    if (/^[_*][^_*]+[_*]$/.test(p)) return <em key={k} className="text-[#6c707b]">{p.slice(1, -1)}</em>;
     if (/^`[^`]+`$/.test(p)) return <code key={k} className="rounded bg-[#eef0f4] px-1 py-px font-mono text-[0.92em] text-[#3b3f4b]">{p.slice(1, -1)}</code>;
     const link = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(p);
     if (link && /^https?:\/\//.test(link[2]))

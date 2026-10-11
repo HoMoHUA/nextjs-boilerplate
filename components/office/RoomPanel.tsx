@@ -39,13 +39,30 @@ function RoomMenu({ room, onEdit }: { room: Room; onEdit: () => void }) {
   );
 }
 
-export function RoomPanel({ s, onNewRoom, onEditRoom }: { s: OfficeState; onNewRoom: () => void; onEditRoom: (id: string) => void }) {
+export function RoomPanel({
+  s,
+  onNewRoom,
+  onEditRoom,
+  drawer = false,
+  onClose,
+}: {
+  s: OfficeState;
+  onNewRoom: () => void;
+  onEditRoom: (id: string) => void;
+  /** Phone drawer: always expanded, closes after picking a room. */
+  drawer?: boolean;
+  onClose?: () => void;
+}) {
+  const pick = (fn: () => void) => () => {
+    fn();
+    onClose?.();
+  };
   const working = s.rooms.reduce((n, r) => n + r.agents.filter((a) => a.status === "working").length, 0);
   const activeTeams = s.rooms.filter((r) => r.messages.length > 0).length;
   const runningSchedules = s.schedules.filter((x) => x.enabled).length;
   const activeIdx = s.rooms.findIndex((r) => r.id === s.activeRoomId) + 1;
 
-  if (s.roomsCollapsed) {
+  if (s.roomsCollapsed && !drawer) {
     return (
       <div className="flex w-14 flex-col items-center pt-10">
         <button onClick={() => actions.set("roomsCollapsed", false)} className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm hover:bg-white" aria-label="Expand rooms">
@@ -63,16 +80,20 @@ export function RoomPanel({ s, onNewRoom, onEditRoom }: { s: OfficeState; onNewR
   }
 
   return (
-    <aside className="flex w-[272px] shrink-0 flex-col pt-10 min-[1800px]:w-[320px]">
+    <aside className={drawer ? "flex h-full flex-col px-4 pt-5" : "flex w-[272px] shrink-0 flex-col pt-10 min-[1800px]:w-[320px]"}>
       <div className="flex items-center gap-4">
-        <button onClick={() => actions.set("roomsCollapsed", true)} className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm hover:bg-white" aria-label="Collapse rooms">
+        <button
+          onClick={() => (drawer ? onClose?.() : actions.set("roomsCollapsed", true))}
+          className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm hover:bg-white"
+          aria-label={drawer ? "Close rooms" : "Collapse rooms"}
+        >
           <ChevronLeft />
         </button>
         <h2 className="text-[24px] font-light tracking-tight text-[#20222a]">Chat Rooms</h2>
       </div>
 
       <div className="mt-8 flex flex-col gap-5">
-        <button onClick={() => actions.set("view", "lounge")} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-white ${s.view === "lounge" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
+        <button onClick={pick(() => actions.set("view", "lounge"))} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-white ${s.view === "lounge" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
           <span className="text-[34px] leading-none">☕</span>
           <span className="min-w-0">
             <span className="block text-[14.5px] font-semibold text-[#1d1f26]">Lounge</span>
@@ -81,7 +102,7 @@ export function RoomPanel({ s, onNewRoom, onEditRoom }: { s: OfficeState; onNewR
             </span>
           </span>
         </button>
-        <button onClick={() => actions.set("view", "schedule")} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-white ${s.view === "schedule" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
+        <button onClick={pick(() => actions.set("view", "schedule"))} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-white ${s.view === "schedule" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
           <span className="text-[34px] leading-none">⏰</span>
           <span>
             <span className="block text-[14.5px] font-semibold text-[#1d1f26]">Schedule room</span>
@@ -99,7 +120,7 @@ export function RoomPanel({ s, onNewRoom, onEditRoom }: { s: OfficeState; onNewR
         </span>
       </div>
 
-      <button onClick={onNewRoom} className="mt-4 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#9fb4ee] bg-white/40 py-2.5 text-[14.5px] text-[#2a2d36] transition hover:bg-white/80">
+      <button onClick={pick(onNewRoom)} className="mt-4 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#9fb4ee] bg-white/40 py-2.5 text-[14.5px] text-[#2a2d36] transition hover:bg-white/80">
         <Plus /> New chat room
       </button>
 
@@ -112,7 +133,7 @@ export function RoomPanel({ s, onNewRoom, onEditRoom }: { s: OfficeState; onNewR
               key={r.id}
               role="button"
               tabIndex={0}
-              onClick={() => actions.selectRoom(r.id)}
+              onClick={pick(() => actions.selectRoom(r.id))}
               onKeyDown={(e) => e.key === "Enter" && actions.selectRoom(r.id)}
               className={`${card} relative flex cursor-pointer items-center gap-4 px-5 py-5 transition hover:bg-white ${active ? "!border-[#a9bdf6] bg-white ring-1 ring-[#4f7cf5]/30" : ""}`}
             >

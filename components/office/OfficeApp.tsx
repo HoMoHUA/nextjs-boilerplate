@@ -1,12 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { actions, activeRoom, getState, hydrate, sendMessage, setState, useOffice } from "@/lib/store";
 import { ChatBar } from "./ChatBar";
 import { ArrowLeft, Calendar, Logo, Office, Palette, Sliders } from "./icons";
 import { SettingsModal, TeamEditor, ThemeModal, useBackends } from "./Modals";
-import { RightPanel } from "./RightPanel";
+import { MobileSheet, RightPanel } from "./RightPanel";
 import { RoomPanel } from "./RoomPanel";
 import { LoungeView, ScheduleView } from "./Views";
 
@@ -51,6 +51,29 @@ function useTicker() {
 
 const railBtn = "grid h-12 w-12 place-items-center rounded-[14px] transition";
 
+const PHONE = "(max-width: 767px), (max-height: 500px)";
+const LANDSCAPE_PHONE = "(max-height: 500px)";
+/** Media query as state; false during SSR/hydration, then follows the viewport. */
+function useMedia(query: string) {
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
+}
+
+function Menu({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" className={className} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+      <path d="M4 7h16M4 12h16M4 17h10" />
+    </svg>
+  );
+}
+
 export default function OfficeApp() {
   const s = useOffice();
   const room = activeRoom(s);
@@ -59,10 +82,15 @@ export default function OfficeApp() {
   const [modal, setModal] = useState<null | "new" | "team" | "settings" | "theme">(null);
   const [editRoomId, setEditRoomId] = useState<string | null>(null);
 
+  const phone = useMedia(PHONE);
+  const landscape = useMedia(LANDSCAPE_PHONE);
+  const [drawer, setDrawer] = useState(false);
+
   useEffect(() => {
     hydrate();
-    // small screens: start with the room list folded so the office gets the space
+    // smaller screens: fold the side panels so the office gets the space
     if (window.innerWidth < 1440) actions.set("roomsCollapsed", true);
+    if (window.innerWidth < 1280) actions.set("panelCollapsed", true);
   }, []);
   useTicker();
 
@@ -90,6 +118,90 @@ export default function OfficeApp() {
         ? `${s.rooms.length} teams · ${s.rooms.reduce((n, r) => n + r.agents.length, 0)} agents`
         : `${s.schedules.length} schedules`;
   const editRoom = s.rooms.find((r) => r.id === editRoomId);
+
+  const modals = (
+    <>
+      {modal === "new" && <TeamEditor onClose={() => setModal(null)} />}
+      {modal === "team" && editRoom && <TeamEditor key={editRoom.id} room={editRoom} onClose={() => setModal(null)} />}
+      {modal === "settings" && <SettingsModal health={health} claudeCode={claudeCode} onClose={() => setModal(null)} />}
+      {modal === "theme" && <ThemeModal s={s} onClose={() => setModal(null)} />}
+    </>
+  );
+  const openTeam = () => {
+    setEditRoomId(room.id);
+    setModal("team");
+  };
+
+  if (phone)
+    return (
+      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[radial-gradient(ellipse_at_30%_10%,#eef3ea_0%,#f4f4f2_50%,#f2f3f5_100%)] text-[#1d1f26]">
+        {/* top bar */}
+        <header className={`z-20 flex shrink-0 items-center gap-2 px-3 ${landscape ? "pb-1 pt-1.5" : "pb-2 pt-[max(10px,env(safe-area-inset-top))]"}`}>
+          <button onClick={() => setDrawer(true)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/80 shadow-sm" aria-label="Rooms">
+            <Menu />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              {s.view === "room" && <span className="text-[17px]">{room.emoji}</span>}
+              <h1 className="truncate text-[17px] font-bold tracking-tight">{title}</h1>
+            </div>
+            <div className="flex items-center gap-2 text-[11.5px] text-[#7a7e89]">
+              {s.view === "room" && (
+                <span className={`flex items-center gap-1 ${badge.ok ? "text-[#1f9d63]" : "text-[#c98a12]"}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${badge.ok ? "animate-pulse bg-[#1fbf6f]" : "bg-[#f0b429]"}`} />
+                  {badge.label}
+                </span>
+              )}
+              <span className="truncate">{subtitle}</span>
+              {s.view === "room" && <span className="ml-auto shrink-0 tabular-nums">{clock}</span>}
+            </div>
+          </div>
+          <button onClick={() => setModal("settings")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/80 shadow-sm" aria-label="Settings">
+            <Sliders />
+          </button>
+        </header>
+
+        {/* office + bottom sheet */}
+        <main className="relative min-h-0 flex-1">
+          {s.view === "room" && <OfficeScene room={room} selectedId={s.selectedAgentId} theme={s.theme} fx={s.fx} compact padBottom={landscape ? 12 : 70} padRight={landscape ? 56 : 0} />}
+          {s.view === "lounge" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><LoungeView s={s} /></div>}
+          {s.view === "schedule" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><ScheduleView s={s} /></div>}
+          {s.view === "room" && (
+            <div className={`absolute top-2 z-20 flex gap-2 ${landscape ? "left-3 flex-col" : "right-3 flex-col"}`}>
+              <button onClick={() => actions.set("view", "lounge")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Lounge">
+                <ArrowLeft />
+              </button>
+              <button onClick={openTeam} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 text-[17px] shadow-sm backdrop-blur" aria-label="Manage team">
+                👥
+              </button>
+              <button onClick={() => actions.set("view", "schedule")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Schedule">
+                <Calendar />
+              </button>
+              <button onClick={() => setModal("theme")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Theme">
+                <Palette />
+              </button>
+            </div>
+          )}
+          <MobileSheet s={s} room={room} side={landscape} />
+        </main>
+
+        {/* chat */}
+        <div className={`z-30 shrink-0 bg-[#f4f4f2]/95 px-3 backdrop-blur ${landscape ? "pb-1.5 pt-1" : "pb-[max(10px,env(safe-area-inset-bottom))] pt-2"}`}>
+          <ChatBar s={s} room={room} compact />
+        </div>
+
+        {/* rooms drawer */}
+        <div className={`fixed inset-0 z-40 transition ${drawer ? "pointer-events-auto" : "pointer-events-none"}`} inert={!drawer}>
+          <div className={`absolute inset-0 bg-[#16171d]/25 transition-opacity ${drawer ? "opacity-100" : "opacity-0"}`} onClick={() => setDrawer(false)} />
+          <div
+            className={`absolute inset-y-0 left-0 w-[86vw] max-w-[340px] bg-[#f4f4f2] shadow-2xl transition-transform duration-300 ${drawer ? "translate-x-0" : "-translate-x-full"}`}
+          >
+            <RoomPanel s={s} drawer onClose={() => setDrawer(false)} onNewRoom={() => setModal("new")} onEditRoom={(id) => { setEditRoomId(id); setModal("team"); }} />
+          </div>
+        </div>
+        {modals}
+      </div>
+    );
 
   return (
     <div className="relative flex h-screen min-h-[720px] w-full overflow-hidden bg-[radial-gradient(ellipse_at_30%_20%,#eef3ea_0%,#f4f4f2_45%,#f2f3f5_100%)] text-[#1d1f26]">
@@ -153,10 +265,7 @@ export default function OfficeApp() {
                 </button>
                 <div className="absolute bottom-4 right-6 flex items-center gap-2">
                   <button
-                    onClick={() => {
-                      setEditRoomId(room.id);
-                      setModal("team");
-                    }}
+                    onClick={openTeam}
                     className="rounded-full border border-[#d9dbe0] bg-white/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-white"
                   >
                     Manage team
@@ -175,10 +284,7 @@ export default function OfficeApp() {
         <RightPanel s={s} room={room} />
       </div>
 
-      {modal === "new" && <TeamEditor onClose={() => setModal(null)} />}
-      {modal === "team" && editRoom && <TeamEditor key={editRoom.id} room={editRoom} onClose={() => setModal(null)} />}
-      {modal === "settings" && <SettingsModal health={health} claudeCode={claudeCode} onClose={() => setModal(null)} />}
-      {modal === "theme" && <ThemeModal s={s} onClose={() => setModal(null)} />}
+      {modals}
     </div>
   );
 }

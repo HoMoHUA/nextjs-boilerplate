@@ -5,7 +5,7 @@ import { actions, leadOf, sendMessage, stopAgent } from "@/lib/store";
 import type { OfficeState, Room } from "@/lib/types";
 import { Paperclip, Send, Stop } from "./icons";
 
-export function ChatBar({ s, room }: { s: OfficeState; room: Room }) {
+export function ChatBar({ s, room, compact = false }: { s: OfficeState; room: Room; compact?: boolean }) {
   const [text, setText] = useState("");
   const [menu, setMenu] = useState(false);
   const [attachment, setAttachment] = useState<{ name: string; content: string } | null>(null);
@@ -26,7 +26,11 @@ export function ChatBar({ s, room }: { s: OfficeState; room: Room }) {
   };
 
   return (
-    <div className="relative flex w-full max-w-[640px] items-center gap-3 rounded-[18px] bg-white/90 px-4 py-3 shadow-[0_10px_30px_rgba(20,22,30,0.07)] backdrop-blur">
+    <div
+      className={`relative flex w-full items-center bg-white/90 shadow-[0_10px_30px_rgba(20,22,30,0.07)] backdrop-blur ${
+        compact ? "gap-2 rounded-[16px] px-2.5 py-2" : "max-w-[640px] gap-3 rounded-[18px] px-4 py-3"
+      }`}
+    >
       <div className="relative">
         <button onClick={() => setMenu((v) => !v)} className="flex items-center gap-1.5 rounded-full bg-[#16171d] px-3 py-1.5 text-[13px] font-semibold text-white">
           <span className={`h-2 w-2 rounded-full ${busy ? "animate-pulse bg-[#f5b942]" : "bg-[#ff6b6b]"}`} />@{target?.name}
@@ -62,8 +66,16 @@ export function ChatBar({ s, room }: { s: OfficeState; room: Room }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), submit())}
-          placeholder={locked ? `${leadOf(room)?.name} is working — stop it or wait for the reply` : "Say anything — the agent replies for real"}
-          className="w-full bg-transparent text-[14.5px] text-[#1d1f26] outline-none placeholder:text-[#9a9ea8]"
+          placeholder={
+            locked
+              ? compact
+                ? `${leadOf(room)?.name} is working…`
+                : `${leadOf(room)?.name} is working — stop it or wait for the reply`
+              : compact
+                ? "Message the team…"
+                : "Say anything — the agent replies for real"
+          }
+          className="w-full bg-transparent text-[16px] md:text-[14.5px] text-[#1d1f26] outline-none placeholder:text-[#9a9ea8]"
         />
       </div>
       <input
