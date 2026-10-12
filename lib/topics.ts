@@ -9,10 +9,10 @@ export const topicAvatarId = (roomId:string) => `topic-avatar:${roomId}`;
 export function topicActors(s:OfficeState):Agent[] {
   return visibleTopics(s).map(room=>{
     const working=room.telegram!.busy || room.agents.some(a=>a.status=== "working");
-    return {id:topicAvatarId(room.id),topicRoomId:room.id,name:room.name,title:"تاپیک تلگرام",persona:"",isLead:false,
+    return {id:topicAvatarId(room.id),topicRoomId:room.id,name:room.name,title:"Telegram topic",persona:"",isLead:false,
       status:working?"working":room.agents.some(a=>a.status==="needs_you")?"needs_you":"idle",
       look:lookFor("topic:"+room.telegram!.topicId),runtime:true,
-      activity:working?room.agents.find(a=>a.status==="working")?.activity || "تاپیک در حال پردازش است":undefined};
+      activity:working?room.agents.find(a=>a.status==="working")?.activity || "Topic is processing":undefined};
   });
 }
 

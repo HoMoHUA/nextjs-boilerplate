@@ -24,7 +24,7 @@ export function LoungeView({ s }: { s: OfficeState }) {
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-[#1d1f26]">{r.name}</div>
                   <div className="text-[12px] text-[#7a7e89]">
-                    {r.telegram ? "تاپیک تلگرام" : `${r.agents.length} agents · ${r.outputs.length} outputs`}
+                    {r.telegram ? "Telegram topic" : `${r.agents.length} agents · ${r.outputs.length} outputs`}
                   </div>
                 </div>
                 {pending > 0 && <span className="rounded bg-[#16171d] px-1.5 py-0.5 text-[10px] font-bold text-white">{pending} NEEDS YOU</span>}
@@ -108,7 +108,7 @@ export function ScheduleView({ s }: { s: OfficeState }) {
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13.5px] font-semibold">{x.prompt}</div>
                 <div className="text-[12px] text-[#7a7e89]">
-                  {r?.name} · @{a?.name} · every {x.everyMinutes} min · next {new Date(x.nextRunAt).toLocaleTimeString()}
+                  {r?.name} · @{a?.name} · every {x.everyMinutes} min · next {new Date(x.nextRunAt).toLocaleTimeString("en-US")}
                 </div>
               </div>
               <button

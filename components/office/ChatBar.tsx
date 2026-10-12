@@ -67,7 +67,7 @@ export function ChatBar({ s, room, compact = false }: { s: OfficeState; room: Ro
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), submit())}
-          placeholder={room.telegram ? `پیام برای «${room.name}»…` :
+          placeholder={room.telegram ? `Message "${room.name}"…` :
             locked
               ? compact
                 ? `${leadOf(room)?.name} is working…`

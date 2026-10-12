@@ -44,7 +44,7 @@ function AgentCard({ agent }: { agent: Agent }) {
           </span>
         </span>
       </div>
-      <p className="mt-2 text-[12.5px] text-[#6c707b]">{agent.topicRoomId ? "پیام ها و فعالیت واقعی همین تاپیک نمایش داده می شود؛ موتور پاسخ دهنده را از نوار پیام انتخاب کن." : agent.runtime && agent.kind === "subagent" ? "Recorded runtime worker · read-only. New tasks are delegated by its lead agent." : STATUS_TEXT[agent.status]}</p>
+      <p className="mt-2 text-[12.5px] text-[#6c707b]">{agent.topicRoomId ? "Follow this topic’s actual messages and activity. Choose the reply engine in the message bar." : agent.runtime && agent.kind === "subagent" ? "Recorded runtime worker · read-only. New tasks are delegated by its lead agent." : STATUS_TEXT[agent.status]}</p>
     </div>
   );
 }
@@ -194,7 +194,7 @@ function Thread({ room }: { room: Room }) {
     else if(nearBottom.current || last?.optimistic)node.scrollTop=node.scrollHeight;
     before.current={roomId:room.id,first:first?.id,last:last?.id,height:node.scrollHeight};
   },[room.id,first?.id,last?.id,last?.content,room.messages.length,last?.optimistic]);
-  const time=(ts:number)=>ts?new Date(ts).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  const time=(ts:number)=>ts?new Date(ts).toLocaleString("en-US", {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
   return <div ref={root} data-testid="topic-thread" className="flex min-w-0 flex-col gap-3">
     {room.telegram && <div className="flex flex-col items-center gap-2 text-[12px]">
       {room.telegram.hasMore && <button disabled={room.telegram.historyLoading} onClick={()=>void loadTopicHistory(room.id,true)} className="rounded-full border border-[#dfe3ec] bg-white px-4 py-2 disabled:opacity-40">Load older messages</button>}

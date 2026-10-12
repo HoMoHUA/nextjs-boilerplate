@@ -106,12 +106,12 @@ export default function OfficeApp() {
     // Projection order is keyed by topic identity, not status or recency updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[s.activeRoomId,topicKey]);
-  const topicPager=room.telegram && pageCount>1 ? <div dir="rtl" className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-xl border border-[#d9dfe9] bg-white/95 p-2 text-[11px] shadow-sm">
-    <button aria-label="صفحهٔ قبلی تاپیک ها" disabled={page===0} onClick={()=>setTopicPage(page-1)} className="h-8 rounded-lg px-2 disabled:opacity-30">→</button>
-    <span>تاپیک ها · {page+1} / {pageCount}</span>
-    <button aria-label="صفحهٔ بعدی تاپیک ها" disabled={page===pageCount-1} onClick={()=>setTopicPage(page+1)} className="h-8 rounded-lg px-2 disabled:opacity-30">←</button>
+  const topicPager=room.telegram && pageCount>1 ? <div dir="ltr" className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-xl border border-[#d9dfe9] bg-white/95 p-2 text-[11px] shadow-sm">
+    <button aria-label="Previous topic page" disabled={page===0} onClick={()=>setTopicPage(page-1)} className="h-8 rounded-lg px-2 disabled:opacity-30">←</button>
+    <span>Topics · {page+1} / {pageCount}</span>
+    <button aria-label="Next topic page" disabled={page===pageCount-1} onClick={()=>setTopicPage(page+1)} className="h-8 rounded-lg px-2 disabled:opacity-30">→</button>
   </div> : null;
-  const emptyTopics=topicEmpty ? <div className="absolute inset-0 z-10 grid place-items-center p-6"><div dir="rtl" className="max-w-sm rounded-2xl bg-white/95 p-5 text-center shadow-sm"><p className="text-[14px]">هیچ تاپیکی برای نمایش انتخاب نشده است.</p><button onClick={openTopics} className="mt-3 min-h-11 rounded-xl bg-[#1f4fd6] px-4 text-[13px] text-white">انتخاب تاپیک ها</button></div></div> : null;
+  const emptyTopics=topicEmpty ? <div className="absolute inset-0 z-10 grid place-items-center p-6"><div dir="ltr" className="max-w-sm rounded-2xl bg-white/95 p-5 text-center shadow-sm"><p className="text-[14px]">No topics selected for display.</p><button onClick={openTopics} className="mt-3 min-h-11 rounded-xl bg-[#1f4fd6] px-4 text-[13px] text-white">Select topics</button></div></div> : null;
 
   useEffect(() => {
     hydrate();
@@ -140,7 +140,7 @@ export default function OfficeApp() {
   const subtitle =
     s.view === "room"
       ? [
-          room.telegram ? `${actors.length} تاپیک` : `${room.agents.length} agents`,
+          room.telegram ? `${actors.length} topics` : `${room.agents.length} agents`,
           room.telegram ? "" : `${room.outputs.length} outputs`,
           working ? `${working} working` : "",
           room.costUsd ? `$${room.costUsd.toFixed(2)}` : "",
@@ -153,7 +153,7 @@ export default function OfficeApp() {
   const editRoom = s.rooms.find((r) => r.id === editRoomId);
   const scheduleState = { ...s, rooms: s.rooms.filter((r) => !r.telegram),
     schedules: s.schedules.filter((x) => s.rooms.some((r) => r.id === x.roomId && !r.telegram)) };
-  const chat = (compact = false) => topicEmpty ? <button onClick={openTopics} className="min-h-11 rounded-xl bg-white px-4 text-[13px] shadow-sm">برای شروع، تاپیک های دفتر را انتخاب کن</button> : (
+  const chat = (compact = false) => topicEmpty ? <button onClick={openTopics} className="min-h-11 rounded-xl bg-white px-4 text-[13px] shadow-sm">Select office topics to get started</button> : (
     <fieldset disabled={room.telegram?.delivery === "posting"} className={`min-w-0 border-0 p-0 ${compact ? "w-full" : "w-full max-w-[640px]"} ${room.telegram ? "[&_button[aria-label=Stop]]:hidden" : ""}`}>
       <ChatBar s={s} room={room} compact={compact} />
     </fieldset>
@@ -216,7 +216,7 @@ export default function OfficeApp() {
               <button onClick={() => actions.set("view", "lounge")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Lounge">
                 <ArrowLeft />
               </button>
-              <button onClick={room.telegram ? openTopics : openTeam} title={room.telegram ? "انتخاب تاپیک ها" : "Manage team"} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 text-[17px] shadow-sm backdrop-blur disabled:opacity-40" aria-label={room.telegram ? "انتخاب تاپیک ها" : "Manage team"}>
+              <button onClick={room.telegram ? openTopics : openTeam} title={room.telegram ? "Select topics" : "Manage team"} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 text-[17px] shadow-sm backdrop-blur disabled:opacity-40" aria-label={room.telegram ? "Select topics" : "Manage team"}>
                 👥
               </button>
               <button onClick={() => actions.set("view", "schedule")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Schedule">
@@ -317,10 +317,10 @@ export default function OfficeApp() {
                 <div className="absolute bottom-4 right-6 flex items-center gap-2">
                   <button
                     onClick={room.telegram ? openTopics : openTeam}
-                    title={room.telegram ? "انتخاب تاپیک ها" : "Manage team"}
+                    title={room.telegram ? "Select topics" : "Manage team"}
                     className="rounded-full border border-[#d9dbe0] bg-white/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-white disabled:opacity-40"
                   >
-                    {room.telegram ? "انتخاب تاپیک ها" : "Manage team"}
+                    {room.telegram ? "Select topics" : "Manage team"}
                   </button>
                   <button onClick={() => actions.set("view", "schedule")} className="grid h-9 w-9 place-items-center rounded-full border border-[#d9dbe0] bg-white/80 backdrop-blur hover:bg-white" aria-label="Schedule">
                     <Calendar />
