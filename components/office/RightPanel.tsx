@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { topicActors } from "@/lib/topics";
 import { actions, leadOf, stopAgent, loadTopicHistory } from "@/lib/store";
 import type { Agent, AgentStatus, OfficeState, Room, Step } from "@/lib/types";
 import { AgentAvatar } from "./AgentAvatar";
@@ -43,7 +44,7 @@ function AgentCard({ agent }: { agent: Agent }) {
           </span>
         </span>
       </div>
-      <p className="mt-2 text-[12.5px] text-[#6c707b]">{agent.runtime && agent.kind === "subagent" ? "Recorded runtime worker · read-only. New tasks are delegated by its lead agent." : STATUS_TEXT[agent.status]}</p>
+      <p className="mt-2 text-[12.5px] text-[#6c707b]">{agent.topicRoomId ? "پیام ها و فعالیت واقعی همین تاپیک نمایش داده می شود؛ موتور پاسخ دهنده را از نوار پیام انتخاب کن." : agent.runtime && agent.kind === "subagent" ? "Recorded runtime worker · read-only. New tasks are delegated by its lead agent." : STATUS_TEXT[agent.status]}</p>
     </div>
   );
 }
@@ -107,7 +108,7 @@ function Timeline({ room }: { room: Room }) {
 }
 
 function Inspector({ s, room }: { s: OfficeState; room: Room }) {
-  const agent = room.agents.find((a) => a.id === s.selectedAgentId) ?? leadOf(room);
+  const agent = room.telegram ? topicActors({...s,rooms:[room],visibleTopicIds:undefined})[0] : room.agents.find(a=>a.id===s.selectedAgentId) ?? leadOf(room);
   const pending = room.approvals.filter((a) => a.status === "pending");
   return (
     <div className="flex flex-col gap-8">

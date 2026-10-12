@@ -11,7 +11,7 @@ mergeIntegrations(snapshot([source("tg-hermes-7785"),{...source("tg-claude-code-
 assert.equal(getState().rooms.filter(r=>r.telegram).length,1);
 assert.equal(getState().activeRoomId,"tg-topic-7785");
 assert.ok(getState().rooms.some(r=>r.id===local.id));
-assert.equal(getState().rooms.find(r=>r.telegram)?.name,"Hojat's Team");
+assert.equal(getState().rooms.find(r=>r.telegram)?.name,"Team");
 const actors:NonNullable<IntegrationSnapshot["rooms"][number]["agents"]>=[{id:"hermes",name:"Hermes",title:"bot",backend:"hermes",status:"idle",kind:"bot"},{id:"claude-code",name:"Claude",title:"bot",backend:"claude-code",status:"idle",kind:"bot"},{id:"real-worker",name:"Worker",title:"real worker",backend:"hermes",status:"working",kind:"subagent"}];
 mergeIntegrations(snapshot([{...source(),agents:actors,lastMessageAt:400},{...source("tg-topic-11","11"),lastMessageAt:800}],101));
 assert.equal(getState().rooms[0].id,"tg-topic-11");

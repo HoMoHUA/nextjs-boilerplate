@@ -13,7 +13,7 @@ import {
   toChatMessages,
 } from "./protocol";
 import { lookFor, seedState, uid } from "./seed";
-import { canonicalTopics } from "./topics";
+import { canonicalTopics, topicVisible } from "./topics";
 import type { Agent, AgentStatus, Fx, IntegrationSnapshot, OfficeState, Room, Step } from "./types";
 
 const STORAGE_KEY = "arklyn-office-v3";
@@ -73,6 +73,7 @@ export function hydrate() {
           ...seedState(),
           ...saved,
           fx: [],
+          visibleTopicIds:Array.isArray(saved.visibleTopicIds) ? [...new Set(saved.visibleTopicIds.filter(id=>typeof id==="string"))] : undefined,
           integrations: { phase: "connecting", bots: [] },
           activeRoomId: saved.rooms.some((r) => r.id === saved.activeRoomId) ? saved.activeRoomId : saved.rooms[0].id,
           rooms: saved.rooms.map((r) => ({ ...r, backend: r.backend ?? "hermes",
@@ -143,7 +144,7 @@ function connectedRoom(snapshot: IntegrationSnapshot, source: IntegrationSnapsho
   });
   const delivery = telegramPosts.has(source.id) ? "posting" : previous?.telegram?.delivery === "error" ? "error" : awaitingReplies.length ? "queued" : undefined;
   return {
-    id:source.id,name:source.topicId === "7785" ? "Hojat's Team" : source.name,emoji:"🏡",backend:"hermes",
+    id:source.id,name:source.name,emoji:"🏡",backend:"hermes",
     agents,messages:[...authoritative,...pendingMessages.map(p=>({id:p.clientId,role:"user" as const,content:p.content,ts:p.ts,optimistic:true,senderName:"You",backend:p.backend})),...(previous?.messages.filter(m=>m.error) ?? [])],
     steps:source.steps.map(s=>({...s,agentId:agentId(s.agentId ?? "hermes"),progress:s.status === "done" ? 100 : undefined})),
     approvals:[],outputs:[],startedAt:previous?.startedAt ?? authoritative[0]?.ts ?? Date.now(),
@@ -164,10 +165,11 @@ export function mergeIntegrations(snapshot: IntegrationSnapshot) {
     const rooms=[...connected,...s.rooms.filter(r=>!r.telegram)];
     if (!rooms.length) return {...s,integrations:{phase:"synced",group:snapshot.group,bots:snapshot.bots,updatedAt:snapshot.updatedAt}};
     const previousActive=s.rooms.find(r=>r.id===s.activeRoomId);
-    const migrated=previousActive?.telegram ? connected.find(r=>r.telegram?.topicId===previousActive.telegram?.topicId) : undefined;
-    const initial=initialIntegrationSelection && !userSelectedRoom ? connected.find(r=>r.telegram?.topicId === "7785") ?? connected[0] : undefined;
+    const visible=connected.filter(r=>topicVisible(s,r.telegram!.topicId));
+    const migrated=previousActive?.telegram ? visible.find(r=>r.telegram?.topicId===previousActive.telegram?.topicId) : undefined;
+    const initial=initialIntegrationSelection && !userSelectedRoom ? visible.find(r=>r.telegram?.topicId === "7785") ?? visible[0] : undefined;
     if(connected.length)initialIntegrationSelection=false;
-    const active=initial ?? migrated ?? rooms.find(r=>r.id===s.activeRoomId) ?? rooms[0];
+    const active=initial ?? migrated ?? (previousActive?.telegram && visible.length ? visible[0] : rooms.find(r=>r.id===s.activeRoomId)) ?? rooms[0];
     const validSelected=active.agents.some(a=>a.id===s.selectedAgentId);
     const validTarget=active.agents.some(a=>a.id===s.targetAgentId && a.backend && a.kind==="bot");
     const preferred=active.agents.find(a=>a.backend===previousActive?.backend && a.kind==="bot") ?? leadOf(active);
@@ -215,7 +217,7 @@ export function startIntegrationPolling():()=>void {
   const apply=(snapshot:IntegrationSnapshot)=>{
     if(stopped || !Array.isArray(snapshot.rooms) || !Number.isFinite(snapshot.updatedAt))return;
     mergeIntegrations(snapshot);
-    const room=activeRoom(getState());if(room?.telegram)void loadTopicHistory(room.id,false,first);
+    const room=activeRoom(getState());if(room?.telegram && topicVisible(getState(),room.telegram.topicId))void loadTopicHistory(room.id,false,first);
     first=false;
   };
   async function poll(){
@@ -237,8 +239,18 @@ export function startIntegrationPolling():()=>void {
 /* ---------- actions ---------- */
 
 export const actions = {
+  setTopicVisibility(ids:string[]|undefined) {
+    const known=new Set(getState().rooms.flatMap(r=>r.telegram?[r.telegram.topicId]:[]));
+    const visibleTopicIds=ids===undefined?undefined:[...new Set(ids.filter(id=>known.has(id)))];
+    setState(s=>({...s,visibleTopicIds}));
+    const s=getState(),current=activeRoom(s);
+    if(current?.telegram && !topicVisible(s,current.telegram.topicId)){
+      const fallback=s.rooms.find(r=>r.telegram && topicVisible(s,r.telegram.topicId));
+      if(fallback)actions.selectRoom(fallback.id);
+    }
+  },
   selectRoom(id: string) {
-    if (!getState().rooms.some((r) => r.id === id)) return;
+    if (!getState().rooms.some(r=>r.id===id && (!r.telegram || topicVisible(getState(),r.telegram.topicId)))) return;
     userSelectedRoom = true;
     setState((s) => {
       const room = s.rooms.find((r) => r.id === id);

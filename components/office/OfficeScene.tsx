@@ -177,18 +177,21 @@ function ResponsiveZoom() {
   return null;
 }
 
-function Label({ name, tag, active, compact, onClick }: { name: string; tag: string; active: boolean; compact: boolean; onClick: () => void }) {
+function Label({ name, tag, active, compact, onClick, topicRoomId }: { name: string; tag: string; active: boolean; compact: boolean; onClick: () => void; topicRoomId?:string }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border-[#16171d] font-semibold shadow-sm transition hover:-translate-y-px ${
+      data-topic-room={topicRoomId}
+      title={name}
+      aria-label={topicRoomId ? name : undefined}
+      className={`max-w-[170px] flex items-center gap-1.5 whitespace-nowrap rounded-full border-[#16171d] font-semibold shadow-sm transition hover:-translate-y-px ${
         compact ? "border px-1.5 py-px text-[10.5px]" : "border-[1.5px] px-2.5 py-[3px] text-[12.5px]"
       } ${
         active ? "bg-[#c9d4ff] text-[#16171d]" : "bg-white text-[#16171d]"
       }`}
     >
-      {name}
-      {!compact && <span className="text-[11px] font-normal tracking-wide text-[#3d404b]">{tag}</span>}
+      <span dir="auto" className="min-w-0 truncate">{name}</span>
+      {!topicRoomId && !compact && <span className="text-[11px] font-normal tracking-wide text-[#3d404b]">{tag}</span>}
     </button>
   );
 }
@@ -272,7 +275,7 @@ function AgentOverlays({
   return (
     <>
       <Overlay id={`${agent.id}:label`} z={10} clamp>
-        <Label name={agent.name} tag={tag} active={selected} compact={compact} onClick={() => actions.selectAgent(agent.id)} />
+        <Label name={agent.name} topicRoomId={agent.topicRoomId} tag={tag} active={selected} compact={compact} onClick={() => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)} />
       </Overlay>
       {agent.status === "working" && (
         <Overlay id={`${agent.id}:above`} z={15}>
@@ -282,7 +285,7 @@ function AgentOverlays({
       {agent.status === "needs_you" && !bubble && (
         <Overlay id={`${agent.id}:above`} z={15}>
           <button
-            onClick={() => actions.selectAgent(agent.id)}
+            onClick={() => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}
             className="grid h-7 w-7 animate-bounce place-items-center rounded-full bg-[#f5a524] text-[15px] font-black text-white shadow-md"
             title={`${agent.name} needs you`}
           >
@@ -363,7 +366,7 @@ function AgentActor({ agent, spot, index, selected, handoff, celebrateAt, lookAt
   return (
     <group ref={group} position={spot.pos} rotation={[0, spot.rot, 0]} scale={S}>
       <StatusRing status={agent.status} selected={selected} />
-      <Character look={agent.look} status={agent.status} seed={index} motion={motion} onClick={() => actions.selectAgent(agent.id)}>
+      <Character look={agent.look} status={agent.status} seed={index} motion={motion} onClick={() => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
         <Anchor id={`${agent.id}:label`} position={[0, 0.15, 0.25]} />
         <Anchor id={`${agent.id}:above`} position={[0, 2.45, 0]} />
         <Anchor id={`${agent.id}:bubble`} position={[0, 2.6, 0]} />

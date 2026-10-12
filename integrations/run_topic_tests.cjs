@@ -4,4 +4,4 @@ const fs=require('node:fs');
 const path=require('node:path');
 const ts=require('../node_modules/typescript');
 require.extensions['.ts']=(module,file)=>module._compile(ts.transpile(fs.readFileSync(file,'utf8'),{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}),file);
-require(path.join(__dirname,'../lib/topic-regression.test.ts'));
+require(path.join(__dirname,process.argv[2] || '../lib/topic-regression.test.ts'));

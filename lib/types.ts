@@ -34,6 +34,8 @@ export interface Agent {
   backend?: Backend;
   kind?: "bot" | "subagent";
   runtime?: boolean;
+  /** Scene-only representative of a Telegram topic, never a send target. */
+  topicRoomId?: string;
 }
 
 export interface Message {
@@ -197,4 +199,6 @@ export interface OfficeState {
   focusOutputId: string | null;
   fx: Fx[];
   integrations?: IntegrationStatus;
+  /** Undefined = all topics; an empty array deliberately hides all. Browser-local preference. */
+  visibleTopicIds?: string[];
 }

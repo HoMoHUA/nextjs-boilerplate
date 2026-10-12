@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { visibleRooms } from "@/lib/topics";
 import { actions } from "@/lib/store";
 import type { OfficeState, Room } from "@/lib/types";
 import { ChevronLeft, ChevronRight, Dots, Plus } from "./icons";
@@ -45,6 +46,7 @@ export function RoomPanel({
   onEditRoom,
   drawer = false,
   onClose,
+  onTopics,
 }: {
   s: OfficeState;
   onNewRoom: () => void;
@@ -52,15 +54,17 @@ export function RoomPanel({
   /** Phone drawer: always expanded, closes after picking a room. */
   drawer?: boolean;
   onClose?: () => void;
+  onTopics: () => void;
 }) {
   const pick = (fn: () => void) => () => {
     fn();
     onClose?.();
   };
-  const working = s.rooms.reduce((n, r) => n + r.agents.filter((a) => a.status === "working").length, 0);
-  const activeTeams = s.rooms.filter((r) => r.messages.length > 0).length;
+  const rooms = visibleRooms(s);
+  const working = rooms.reduce((n, r) => n + r.agents.filter((a) => a.status === "working").length, 0);
+  const activeTeams = rooms.filter((r) => r.messages.length > 0).length;
   const runningSchedules = s.schedules.filter((x) => x.enabled).length;
-  const activeIdx = s.rooms.findIndex((r) => r.id === s.activeRoomId) + 1;
+  const activeIdx = rooms.findIndex((r) => r.id === s.activeRoomId) + 1;
 
   if (s.roomsCollapsed && !drawer) {
     return (
@@ -68,8 +72,9 @@ export function RoomPanel({
         <button onClick={() => actions.set("roomsCollapsed", false)} className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm hover:bg-white" aria-label="Expand rooms">
           <ChevronRight />
         </button>
-        <div className="mt-6 flex flex-col gap-3">
-          {s.rooms.map((r) => (
+        <button onClick={onTopics} aria-label="انتخاب تاپیک ها" title="انتخاب تاپیک ها" className="mt-4 grid h-11 w-11 place-items-center rounded-xl bg-white text-xl">☑</button>
+        <div className="mt-6 flex flex-col gap-3 overflow-y-auto">
+          {rooms.map((r) => (
             <button key={r.id} title={r.name} onClick={() => actions.selectRoom(r.id)} className={`grid h-11 w-11 place-items-center rounded-xl text-xl ${r.id === s.activeRoomId && s.view === "room" ? "bg-white shadow ring-1 ring-[#4f7cf5]/40" : "bg-white/60"}`}>
               {r.emoji}
             </button>
@@ -116,16 +121,17 @@ export function RoomPanel({
       <div className="mt-9 flex items-center justify-between text-[12px] font-medium tracking-wider text-[#5d6170]">
         <span>ROOM LIST</span>
         <span className="font-normal text-[#9a9ea8]">
-          {activeIdx} / {s.rooms.length}
+          {activeIdx} / {rooms.length}
         </span>
       </div>
 
+      <button onClick={pick(onTopics)} className="mt-4 min-h-11 rounded-xl border border-[#b9c8e8] bg-white px-3 text-[13px] font-medium" aria-label="انتخاب تاپیک ها">☑ انتخاب تاپیک ها</button>
       <button onClick={pick(onNewRoom)} className="mt-4 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#9fb4ee] bg-white/40 py-2.5 text-[14.5px] text-[#2a2d36] transition hover:bg-white/80">
         <Plus /> New chat room
       </button>
 
       <div className="mt-5 flex flex-col gap-3 overflow-y-auto pb-6 pr-1">
-        {s.rooms.map((r) => {
+        {rooms.map((r) => {
           const active = r.id === s.activeRoomId && s.view === "room";
           const alert = r.unread || r.approvals.some((a) => a.status === "pending");
           return (
@@ -145,10 +151,10 @@ export function RoomPanel({
                 <span className="block truncate text-[14.5px] font-semibold text-[#1d1f26]">{r.name}</span>
                 {r.telegram && <span className="mt-1 block truncate text-[11.5px] text-[#5d6170]">{r.preview || "No messages yet"}</span>}
                 <span className="mt-1 block text-[10.5px] text-[#7a7e89]">
-                  {r.agents.length} agents{r.telegram ? ` · ${r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : ""}` : ` · ${r.outputs.length} outputs`}
+                  {r.telegram ? "تاپیک تلگرام" : `${r.agents.length} agents`}{r.telegram ? ` · ${r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : ""}` : ` · ${r.outputs.length} outputs`}
                 </span>
               </span>
-              <RoomMenu room={r} onEdit={() => onEditRoom(r.id)} />
+              {!r.telegram && <RoomMenu room={r} onEdit={() => onEditRoom(r.id)} />}
             </div>
           );
         })}

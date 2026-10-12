@@ -9,6 +9,8 @@ import { ArrowLeft, Calendar, Logo, Office, Palette, Sliders } from "./icons";
 import { SettingsModal, TeamEditor, ThemeModal, useBackends } from "./Modals";
 import { MobileSheet, RightPanel } from "./RightPanel";
 import { RoomPanel } from "./RoomPanel";
+import { TopicPicker } from "./TopicPicker";
+import { topicActors, topicAvatarId, TOPICS_PER_PAGE } from "@/lib/topics";
 import { LoungeView, ScheduleView } from "./Views";
 
 const OfficeScene = dynamic(() => import("./OfficeScene"), {
@@ -83,12 +85,33 @@ export default function OfficeApp() {
   const room = activeRoom(s);
   const clock = useClock(room.startedAt);
   const { health, claudeCode } = useBackends();
-  const [modal, setModal] = useState<null | "new" | "team" | "settings" | "theme">(null);
+  const [modal, setModal] = useState<null | "new" | "team" | "settings" | "theme" | "topics">(null);
   const [editRoomId, setEditRoomId] = useState<string | null>(null);
 
   const phone = useMedia(PHONE);
   const landscape = useMedia(LANDSCAPE_PHONE);
   const [drawer, setDrawer] = useState(false);
+  const [topicPage,setTopicPage]=useState(0);
+  const actors=topicActors(s);
+  const topicKey=actors.map(a=>a.id).join("|");
+  const pageCount=Math.max(1,Math.ceil(actors.length/TOPICS_PER_PAGE));
+  const page=Math.min(topicPage,pageCount-1);
+  const topicEmpty=!!room.telegram && actors.length===0;
+  const sceneRoom=room.telegram ? {...room,id:"telegram-topic-office",agents:actors.slice(page*TOPICS_PER_PAGE,(page+1)*TOPICS_PER_PAGE),approvals:[],steps:[],outputs:[]} : room;
+  const sceneSelected=room.telegram ? topicAvatarId(room.id) : s.selectedAgentId;
+  const openTopics=()=>{setDrawer(false);setModal("topics");};
+  useEffect(()=>{
+    const index=actors.findIndex(a=>a.topicRoomId===s.activeRoomId);
+    if(index>=0)setTopicPage(Math.floor(index/TOPICS_PER_PAGE));
+    // Projection order is keyed by topic identity, not status or recency updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[s.activeRoomId,topicKey]);
+  const topicPager=room.telegram && pageCount>1 ? <div dir="rtl" className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-xl border border-[#d9dfe9] bg-white/95 p-2 text-[11px] shadow-sm">
+    <button aria-label="صفحهٔ قبلی تاپیک ها" disabled={page===0} onClick={()=>setTopicPage(page-1)} className="h-8 rounded-lg px-2 disabled:opacity-30">→</button>
+    <span>تاپیک ها · {page+1} / {pageCount}</span>
+    <button aria-label="صفحهٔ بعدی تاپیک ها" disabled={page===pageCount-1} onClick={()=>setTopicPage(page+1)} className="h-8 rounded-lg px-2 disabled:opacity-30">←</button>
+  </div> : null;
+  const emptyTopics=topicEmpty ? <div className="absolute inset-0 z-10 grid place-items-center p-6"><div dir="rtl" className="max-w-sm rounded-2xl bg-white/95 p-5 text-center shadow-sm"><p className="text-[14px]">هیچ تاپیکی برای نمایش انتخاب نشده است.</p><button onClick={openTopics} className="mt-3 min-h-11 rounded-xl bg-[#1f4fd6] px-4 text-[13px] text-white">انتخاب تاپیک ها</button></div></div> : null;
 
   useEffect(() => {
     hydrate();
@@ -112,13 +135,13 @@ export default function OfficeApp() {
     : health?.mode === "live"
       ? { ok: health.ok, label: health.ok ? "live" : "offline", hint: health.error ?? health.model ?? "" }
       : { ok: false, label: "demo", hint: "Set HERMES_API_URL to connect hermes-agent" };
-  const working = room.agents.filter((a) => a.status === "working").length;
-  const title = s.view === "lounge" ? "Lounge" : s.view === "schedule" ? "Schedule room" : room.name;
+  const working = (room.telegram ? actors : room.agents).filter(a=>a.status === "working").length;
+  const title = s.view === "lounge" ? "Lounge" : s.view === "schedule" ? "Schedule room" : topicEmpty || room.telegram?.topicId === "7785" ? "Hojat's Team" : room.name;
   const subtitle =
     s.view === "room"
       ? [
-          `${room.agents.length} agents`,
-          `${room.outputs.length} outputs`,
+          room.telegram ? `${actors.length} تاپیک` : `${room.agents.length} agents`,
+          room.telegram ? "" : `${room.outputs.length} outputs`,
           working ? `${working} working` : "",
           room.costUsd ? `$${room.costUsd.toFixed(2)}` : "",
         ]
@@ -130,7 +153,7 @@ export default function OfficeApp() {
   const editRoom = s.rooms.find((r) => r.id === editRoomId);
   const scheduleState = { ...s, rooms: s.rooms.filter((r) => !r.telegram),
     schedules: s.schedules.filter((x) => s.rooms.some((r) => r.id === x.roomId && !r.telegram)) };
-  const chat = (compact = false) => (
+  const chat = (compact = false) => topicEmpty ? <button onClick={openTopics} className="min-h-11 rounded-xl bg-white px-4 text-[13px] shadow-sm">برای شروع، تاپیک های دفتر را انتخاب کن</button> : (
     <fieldset disabled={room.telegram?.delivery === "posting"} className={`min-w-0 border-0 p-0 ${compact ? "w-full" : "w-full max-w-[640px]"} ${room.telegram ? "[&_button[aria-label=Stop]]:hidden" : ""}`}>
       <ChatBar s={s} room={room} compact={compact} />
     </fieldset>
@@ -138,6 +161,7 @@ export default function OfficeApp() {
 
   const modals = (
     <>
+      {modal === "topics" && <TopicPicker s={s} onClose={()=>setModal(null)}/>}
       {modal === "new" && <TeamEditor onClose={() => setModal(null)} />}
       {modal === "team" && editRoom && !editRoom.telegram && <TeamEditor key={editRoom.id} room={editRoom} onClose={() => setModal(null)} />}
       {modal === "settings" && <SettingsModal health={health} claudeCode={claudeCode} onClose={() => setModal(null)} />}
@@ -184,7 +208,7 @@ export default function OfficeApp() {
 
         {/* office + bottom sheet */}
         <main className="relative min-h-0 flex-1">
-          {s.view === "room" && <OfficeScene room={room} selectedId={s.selectedAgentId} theme={s.theme} fx={s.fx} compact padBottom={landscape ? 12 : 70} padRight={landscape ? 56 : 0} />}
+          {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} fx={s.fx} compact padBottom={landscape ? 12 : 70} padRight={landscape ? 56 : 0} />}
           {s.view === "lounge" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><LoungeView s={s} /></div>}
           {s.view === "schedule" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><ScheduleView s={scheduleState} /></div>}
           {s.view === "room" && (
@@ -192,7 +216,7 @@ export default function OfficeApp() {
               <button onClick={() => actions.set("view", "lounge")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Lounge">
                 <ArrowLeft />
               </button>
-              <button onClick={openTeam} disabled={!!room.telegram} title={room.telegram ? "Connected teams are managed in Telegram" : "Manage team"} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 text-[17px] shadow-sm backdrop-blur disabled:opacity-40" aria-label="Manage team">
+              <button onClick={room.telegram ? openTopics : openTeam} title={room.telegram ? "انتخاب تاپیک ها" : "Manage team"} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 text-[17px] shadow-sm backdrop-blur disabled:opacity-40" aria-label={room.telegram ? "انتخاب تاپیک ها" : "Manage team"}>
                 👥
               </button>
               <button onClick={() => actions.set("view", "schedule")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Schedule">
@@ -203,7 +227,9 @@ export default function OfficeApp() {
               </button>
             </div>
           )}
-          <MobileSheet s={s} room={room} side={landscape} />
+          {s.view === "room" && topicPager}
+          {s.view === "room" && emptyTopics}
+          {!topicEmpty && <MobileSheet s={s} room={room} side={landscape} />}
         </main>
 
         {/* chat */}
@@ -217,7 +243,7 @@ export default function OfficeApp() {
           <div
             className={`absolute inset-y-0 left-0 w-[86vw] max-w-[340px] bg-[#f4f4f2] shadow-2xl transition-transform duration-300 ${drawer ? "translate-x-0" : "-translate-x-full"}`}
           >
-            <RoomPanel s={s} drawer onClose={() => setDrawer(false)} onNewRoom={() => setModal("new")} onEditRoom={(id) => { setEditRoomId(id); setModal("team"); }} />
+            <RoomPanel s={s} onTopics={openTopics} drawer onClose={() => setDrawer(false)} onNewRoom={() => setModal("new")} onEditRoom={(id) => { setEditRoomId(id); setModal("team"); }} />
           </div>
         </div>
         {modals}
@@ -249,6 +275,7 @@ export default function OfficeApp() {
       <div className="relative z-10 flex min-w-0 flex-1 gap-6 pl-4 pr-6 min-[1800px]:gap-8 min-[1800px]:pl-5 min-[1800px]:pr-10">
         <RoomPanel
           s={s}
+          onTopics={openTopics}
           onNewRoom={() => setModal("new")}
           onEditRoom={(id) => {
             setEditRoomId(id);
@@ -276,10 +303,12 @@ export default function OfficeApp() {
 
           <ConnectionStatus status={s.integrations} room={room} />
           <div className="relative min-h-0 flex-1">
-            {s.view === "room" && <OfficeScene room={room} selectedId={s.selectedAgentId} theme={s.theme} fx={s.fx} />}
+            {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} fx={s.fx} />}
             {s.view === "lounge" && <div className="h-full pt-6"><LoungeView s={s} /></div>}
             {s.view === "schedule" && <div className="h-full pt-6"><ScheduleView s={scheduleState} /></div>}
 
+            {s.view === "room" && topicPager}
+            {s.view === "room" && emptyTopics}
             {s.view === "room" && (
               <>
                 <button onClick={() => actions.set("view", "lounge")} className="absolute bottom-4 left-6 flex items-center gap-2 rounded-full border border-[#d9dbe0] bg-white/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-white">
@@ -287,12 +316,11 @@ export default function OfficeApp() {
                 </button>
                 <div className="absolute bottom-4 right-6 flex items-center gap-2">
                   <button
-                    onClick={openTeam}
-                    disabled={!!room.telegram}
-                    title={room.telegram ? "Connected teams are managed in Telegram" : "Manage team"}
+                    onClick={room.telegram ? openTopics : openTeam}
+                    title={room.telegram ? "انتخاب تاپیک ها" : "Manage team"}
                     className="rounded-full border border-[#d9dbe0] bg-white/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-white disabled:opacity-40"
                   >
-                    Manage team
+                    {room.telegram ? "انتخاب تاپیک ها" : "Manage team"}
                   </button>
                   <button onClick={() => actions.set("view", "schedule")} className="grid h-9 w-9 place-items-center rounded-full border border-[#d9dbe0] bg-white/80 backdrop-blur hover:bg-white" aria-label="Schedule">
                     <Calendar />
@@ -305,7 +333,7 @@ export default function OfficeApp() {
           <div className="flex justify-center pb-6 pt-4">{s.view === "room" && chat()}</div>
         </main>
 
-        <RightPanel s={s} room={room} />
+        {!topicEmpty && <RightPanel s={s} room={room} />}
       </div>
 
       {modals}

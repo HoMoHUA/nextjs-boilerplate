@@ -31,7 +31,7 @@ async def main():
         connected=[r for r in state['rooms'] if r.get('telegram')]
         assert len(connected)==len(live['rooms'])==len({r['telegram']['topicId'] for r in connected})
         assert [r['lastMessageAt'] for r in connected]==sorted((r['lastMessageAt'] for r in connected),reverse=True)
-        assert room['name']=="Hojat's Team" and state['rightTab']=='thread' and len(room['agents'])>=2
+        assert room['name']==next(r['name'] for r in live['rooms'] if r['id']==active) and state['rightTab']=='thread' and len(room['agents'])>=2
         assert len(room['messages'])>0 and all(m['id'].isdigit() for m in room['messages'])
         assert await page.locator('[data-testid=topic-thread] [data-message-id]').count()==len(room['messages'])
         print('PASS actual topic count/order, canonical thread and runtime actors:',len(connected),len(room['messages']),len(room['agents']),flush=True)

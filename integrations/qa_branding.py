@@ -17,9 +17,10 @@ async def main():
         context=await browser.new_context(viewport={'width':1440,'height':1000})
         page=await context.new_page()
         errors=[]; page.on('pageerror',lambda e:errors.append(str(e)))
+        await page.goto('https://office.arklyn.ir/login',wait_until='domcontentloaded')
         for asset in ['arklyn-logo.svg','icon.svg']:
-            response=await context.request.get('https://office.arklyn.ir/'+asset)
-            assert response.status==200 and await response.body()==expected
+            response=await page.evaluate("async asset=>{let r=await fetch('/'+asset);return {status:r.status,bytes:Array.from(new Uint8Array(await r.arrayBuffer()))}}",asset)
+            assert response['status']==200 and bytes(response['bytes'])==expected
             print('PASS exact original SVG anonymously served:',asset,flush=True)
         await page.goto('https://office.arklyn.ir/login',wait_until='domcontentloaded')
         await page.wait_for_function("() => {let i=document.querySelector('img[alt=\"Arklyn Office\"]'); return i?.complete&&i.naturalWidth>0;}")

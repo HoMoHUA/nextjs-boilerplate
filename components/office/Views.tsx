@@ -4,6 +4,7 @@ import { useState } from "react";
 import { actions, setState } from "@/lib/store";
 import { uid } from "@/lib/seed";
 import type { OfficeState } from "@/lib/types";
+import { visibleRooms, topicActors } from "@/lib/topics";
 import { AgentAvatar } from "./AgentAvatar";
 
 const card = "rounded-[18px] bg-white/80 p-5 shadow-[0_10px_30px_rgba(20,22,30,0.05)] backdrop-blur";
@@ -12,9 +13,10 @@ export function LoungeView({ s }: { s: OfficeState }) {
   return (
     <div className="h-full overflow-y-auto px-2 pb-10">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {s.rooms.map((r) => {
+        {visibleRooms(s).map((r) => {
           const pending = r.approvals.filter((a) => a.status === "pending").length;
           const last = r.messages[r.messages.length - 1];
+          const actors=r.telegram ? topicActors({...s,rooms:[r],visibleTopicIds:undefined}) : r.agents;
           return (
             <button key={r.id} onClick={() => actions.selectRoom(r.id)} className={`${card} text-left transition hover:-translate-y-0.5 hover:bg-white`}>
               <div className="flex items-center gap-3">
@@ -22,13 +24,13 @@ export function LoungeView({ s }: { s: OfficeState }) {
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-[#1d1f26]">{r.name}</div>
                   <div className="text-[12px] text-[#7a7e89]">
-                    {r.agents.length} agents · {r.outputs.length} outputs
+                    {r.telegram ? "تاپیک تلگرام" : `${r.agents.length} agents · ${r.outputs.length} outputs`}
                   </div>
                 </div>
                 {pending > 0 && <span className="rounded bg-[#16171d] px-1.5 py-0.5 text-[10px] font-bold text-white">{pending} NEEDS YOU</span>}
               </div>
               <div className="mt-4 flex gap-2">
-                {r.agents.map((a) => (
+                {actors.map((a) => (
                   <div key={a.id} className="flex flex-col items-center gap-1">
                     <AgentAvatar look={a.look} size={36} />
                     <span className="text-[11px] text-[#4e525d]">{a.name}</span>

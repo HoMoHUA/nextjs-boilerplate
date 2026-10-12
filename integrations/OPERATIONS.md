@@ -50,9 +50,11 @@ For Python bridge changes restart only `arklyn-office-bridge.service`; for scope
 - `/history?roomId=tg-topic-N&before=ID` reads only the selected topic and paginates older messages. General starts at its own latest message in group history; its cursor skips already scanned group windows.
 - Canonical message IDs, sender identities, captions and attachment metadata are used, not internal model transcripts. Actual file/photo bytes are not served yet.
 - The private bounded SQLite cache is `/var/lib/arklyn-office/private/threads.sqlite` (root0700 parent, root0600 file). Keep tombstones for evicted messages and live edits outside the latest history window. Use Telegram edit timestamps to reject stale history overwrites.
-- Connected topics project actual member bots plus real owner-scoped Hermes/Claude delegated-session records. Runtime workers are read-only; sends choose the actual Hermes/Claude bot backend, never a worker ID. Closed worker sessions are recorded as ended, not proof that their assignment succeeded.
+- The shared Telegram office uses ONE character per selected topic, named exactly after the Telegram topic. Native bot/worker descriptors remain routing and activity metadata, not scene characters. Clicking a topic character opens its own canonical thread; the actual Hermes/Claude send target remains separate. Independent local rooms keep their agent-based scenes.
 - Client loading flags are transient: derive them from live request controllers, not browser storage, so interrupted history requests cannot permanently block a reopened thread.
+- Browser-local `visibleTopicIds` controls the office, Room list and Lounge: undefined means all; an empty array means none. Hide without deleting data. Paginate selected scene topics in groups of 12 to avoid overlapping seats; keep appearance and seating keyed to numeric topic identity, not recency. Raw topic names are used in scene/selector/list; Hojat's Team is a header-only alias for topic7785.
 - Telegram rooms use occupied-seat camera fitting and clamped labels. Preserve selection and loaded older pages while new messages reorder the Room list.
+- Explicit Tailwind `@source` paths cover components/lib. If fresh utilities are absent despite correct sources, verify the generated CSS and rebuild with only this project's stale Webpack cache moved aside; do not mistake a cached successful build for updated CSS.
 - Browser API requests in Playwright must use `page.evaluate(fetch(...))` when Chromium uses a hostname-to-loopback override; APIRequestContext ignores that browser mapping and may expose cookies in exception traces.
 
 Additional checks:
@@ -60,6 +62,8 @@ Additional checks:
 /root/.telegram_env/bin/python -m unittest discover -s /opt/arklyn-office/integrations -p 'test*bridge.py' -v
 /root/.telegram_env/bin/python -m unittest discover -s /opt/arklyn-office/integrations -p test_runtime_agents.py -v
 node /opt/arklyn-office/integrations/run_topic_tests.cjs
+node /opt/arklyn-office/integrations/run_topic_tests.cjs ../lib/topic-office.test.ts
+uv run --with playwright python /opt/arklyn-office/integrations/qa_topic_selection.py
 uv run --with playwright python /opt/arklyn-office/integrations/qa_topics.py
 ```
 `qa_topics.py` verifies a real temporary bot message, its edit and its deletion without requesting a model turn. It removes exactly its own diagnostic message. Compare topic counts with the actual API, not old fixed totals.
