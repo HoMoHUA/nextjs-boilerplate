@@ -14,7 +14,7 @@ export function ChatBar({ s, room, compact = false }: { s: OfficeState; room: Ro
   const busy = target?.status === "working";
   const roomBusy = room.agents.some((a) => a.status === "working");
   // a Claude Code room runs one turn at a time; hermes agents can be messaged in parallel
-  const locked = room.backend === "claude-code" && roomBusy;
+  const locked = room.telegram ? room.telegram.delivery === "posting" || !target?.backend || target.kind !== "bot" : room.backend === "claude-code" && roomBusy;
 
   const submit = () => {
     if (locked) return;
@@ -37,11 +37,12 @@ export function ChatBar({ s, room, compact = false }: { s: OfficeState; room: Ro
         </button>
         {menu && (
           <div className="absolute bottom-11 left-0 z-30 w-56 overflow-hidden rounded-xl border border-[#eceef2] bg-white py-1 shadow-xl" onMouseLeave={() => setMenu(false)}>
-            {room.agents.map((a) => (
+            {room.agents.filter(a=>!room.telegram || (a.kind === "bot" && a.backend)).map((a) => (
               <button
                 key={a.id}
                 onClick={() => {
-                  actions.selectAgent(a.id);
+                  actions.set("targetAgentId", a.id);
+                  actions.set("selectedAgentId", a.id);
                   setMenu(false);
                 }}
                 className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] hover:bg-[#f4f5f8]"
@@ -92,7 +93,7 @@ export function ChatBar({ s, room, compact = false }: { s: OfficeState; room: Ro
       <button onClick={() => fileRef.current?.click()} className="text-[#3a3d47] hover:text-black" aria-label="Attach file">
         <Paperclip />
       </button>
-      {roomBusy && (
+      {roomBusy && !room.telegram && (
         <button
           onClick={() => room.agents.filter((a) => a.status === "working").forEach((a) => stopAgent(a.id))}
           className="grid h-7 w-7 place-items-center rounded-full bg-[#fdecec] text-[#e04848] hover:bg-[#fbdada]"

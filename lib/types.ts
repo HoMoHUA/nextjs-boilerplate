@@ -31,6 +31,9 @@ export interface Agent {
   source?: AgentSource;
   /** Live one-liner of what the agent is doing right now (e.g. "Read · app/page.tsx"). */
   activity?: string;
+  backend?: Backend;
+  kind?: "bot" | "subagent";
+  runtime?: boolean;
 }
 
 export interface Message {
@@ -41,6 +44,12 @@ export interface Message {
   ts: number;
   streaming?: boolean;
   error?: boolean;
+  editedAt?: number;
+  senderId?: string;
+  senderName?: string;
+  media?: { type: string; name?: string };
+  optimistic?: boolean;
+  backend?: Backend;
 }
 
 export type StepStatus = "done" | "running" | "pending";
@@ -85,10 +94,19 @@ export interface IntegrationSnapshot {
     backend: Backend;
     topicId: string;
     sessionId?: string;
+    ccSessionId?: string;
     model?: string;
-    messages: Pick<Message, "id" | "role" | "content" | "ts">[];
-    steps: { id: string; title: string; description: string; status: "done" | "running"; ts: number }[];
+    lastMessageAt?: number;
+    lastMessageId?: string;
+    preview?: string;
+    messages: Message[];
+    agents?: { id: string; name: string; title: string; backend?: Backend; status: AgentStatus; activity?: string; kind: "bot" | "subagent" }[];
+    steps: { id: string; agentId?: string; title: string; description: string; status: "done" | "running"; ts: number }[];
     busy: boolean;
+    historyLoaded?: boolean;
+    hasMore?: boolean;
+    before?: string | null;
+    deletedMessageIds?: string[];
   }[];
   updatedAt: number;
 }
@@ -102,8 +120,15 @@ export interface TelegramBinding {
   delivery?: "posting" | "queued" | "error";
   error?: string;
   /** Only unobserved optimistic messages are retained alongside snapshots. */
-  pendingMessages: { clientId: string; messageId?: string; content: string; ts: number; priorUserIds: string[] }[];
-  awaitingReply?: { messageId?: string; ts: number; priorAgentIds: string[] };
+  pendingMessages: { clientId: string; messageId?: string; content: string; ts: number; priorUserIds: string[]; backend?: Backend }[];
+  awaitingReply?: { messageId?: string; ts: number; priorAgentIds: string[]; backend?: Backend };
+  awaitingReplies?: { messageId?: string; ts: number; priorAgentIds: string[]; backend: Backend; clientId: string }[];
+  historyLoaded?: boolean;
+  historyLoading?: boolean;
+  historyError?: string;
+  hasMore?: boolean;
+  before?: string | null;
+  deletedMessageIds?: string[];
 }
 
 export interface IntegrationStatus {
@@ -127,6 +152,9 @@ export interface Room {
   unread: boolean;
   backend: Backend;
   telegram?: TelegramBinding;
+  lastMessageAt?: number;
+  lastMessageId?: string;
+  preview?: string;
   /** Claude Code session to resume, so the room keeps its context. */
   ccSessionId?: string;
   costUsd?: number;

@@ -21,11 +21,14 @@ async def main():
         page.on('pageerror',lambda e:errors.append(str(e)))
         await page.goto('https://office.arklyn.ir/',wait_until='domcontentloaded')
         await page.wait_for_function("() => { const s=JSON.parse(localStorage.getItem('arklyn-office-v3')||'null'); return s?.integrations?.phase==='synced' && document.querySelector('canvas')?.clientWidth>0; }",timeout=60000)
+        live=await page.evaluate("fetch('/api/integrations').then(r=>r.json())")
+        expected=len(live['rooms'])
+        assert expected==len({r['topicId'] for r in live['rooms']})
         for width,height,name in [(1440,1000,'desktop'),(390,844,'mobile')]:
             await page.set_viewport_size({'width':width,'height':height})
             await page.wait_for_timeout(1200)
             info=await page.evaluate("""() => {const s=JSON.parse(localStorage.getItem('arklyn-office-v3')); const c=document.querySelector('canvas'); return {title:document.title,roomCount:s.rooms.length,connected:s.rooms.filter(r=>r.telegram).length,active:s.activeRoomId,phase:s.integrations.phase,canvas:!!c&&c.clientWidth>0&&c.clientHeight>0,overflow:document.documentElement.scrollWidth>innerWidth,botConnected:s.integrations.bots.every(b=>b.ok),connectionText:document.body.innerText.includes('Telegram synced')};}""")
-            assert info['title']=='Arklyn Office' and info['connected']==64 and info['canvas'] and not info['overflow'] and info['botConnected'] and info['connectionText'],info
+            assert info['title']=='Arklyn Office' and info['connected']==expected and info['canvas'] and not info['overflow'] and info['botConnected'] and info['connectionText'],info
             await page.screenshot(path=f'/opt/arklyn-office/integrations/qa-{name}.png')
             print('PASS browser '+name+': '+json.dumps(info),flush=True)
         assert not errors,errors

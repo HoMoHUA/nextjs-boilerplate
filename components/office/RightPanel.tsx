@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { actions, leadOf, stopAgent } from "@/lib/store";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { actions, leadOf, stopAgent, loadTopicHistory } from "@/lib/store";
 import type { Agent, AgentStatus, OfficeState, Room, Step } from "@/lib/types";
 import { AgentAvatar } from "./AgentAvatar";
 import { ApprovalCard } from "./ApprovalCard";
@@ -33,7 +33,7 @@ function AgentCard({ agent }: { agent: Agent }) {
         <span className="text-[15px] font-semibold text-[#1d1f26]">{agent.name}</span>
         <span className="truncate text-[11.5px] text-[#7a7e89]">{agent.title}</span>
         <span className="ml-auto flex items-center gap-1.5">
-          {agent.status === "working" && (
+          {agent.status === "working" && !agent.runtime && (
             <button onClick={() => stopAgent(agent.id)} title="Stop" className="rounded p-0.5 text-[#e04848] hover:bg-red-50">
               <Stop />
             </button>
@@ -43,7 +43,7 @@ function AgentCard({ agent }: { agent: Agent }) {
           </span>
         </span>
       </div>
-      <p className="mt-2 text-[12.5px] text-[#6c707b]">{STATUS_TEXT[agent.status]}</p>
+      <p className="mt-2 text-[12.5px] text-[#6c707b]">{agent.runtime && agent.kind === "subagent" ? "Recorded runtime worker · read-only. New tasks are delegated by its lead agent." : STATUS_TEXT[agent.status]}</p>
     </div>
   );
 }
@@ -180,35 +180,44 @@ function Outputs({ s, room }: { s: OfficeState; room: Room }) {
 }
 
 function Thread({ room }: { room: Room }) {
-  const end = useRef<HTMLDivElement>(null);
-  const last = room.messages[room.messages.length - 1];
-  useEffect(() => {
-    end.current?.scrollIntoView({ block: "end" });
-  }, [room.messages.length, last?.content]);
-  if (!room.messages.length) return <div className={`${panel} px-5 py-6 text-[13px] text-[#8b8f99]`}>No messages yet.</div>;
-  return (
-    <div className="flex flex-col gap-3">
-      {room.messages.map((m) => {
-        const agent = room.agents.find((a) => a.id === m.agentId);
-        if (m.role === "user")
-          return (
-            <div key={m.id} className="ml-10 self-end rounded-[16px] rounded-br-[4px] bg-[#16171d] px-3.5 py-2.5 text-[13px] leading-relaxed text-white whitespace-pre-wrap">
-              {m.content}
-            </div>
-          );
-        return (
-          <div key={m.id} className="mr-6 flex gap-2">
-            {agent && <span className="shrink-0"><AgentAvatar look={agent.look} size={28} /></span>}
-            <div className={`min-w-0 rounded-[16px] rounded-tl-[4px] px-3.5 py-2.5 text-[13px] leading-relaxed ${m.error ? "bg-red-50 text-red-700" : "bg-white/90 text-[#2a2d36] shadow-sm"}`}>
-              <div className="mb-0.5 text-[11px] font-semibold text-[#6c707b]">{agent?.name ?? "Agent"}</div>
-              {m.content ? <Markdown text={m.content} /> : m.streaming ? <span className="text-[#9a9ea8]">typing…</span> : null}
-            </div>
-          </div>
-        );
-      })}
-      <div ref={end} />
-    </div>
-  );
+  const root=useRef<HTMLDivElement>(null),nearBottom=useRef(true);
+  const before=useRef<{roomId:string;first?:string;last?:string;height:number}|null>(null);
+  const scroller=()=>{let node=root.current?.parentElement;while(node && !/auto|scroll/.test(getComputedStyle(node).overflowY))node=node.parentElement;return node;};
+  useEffect(()=>{const node=scroller();const scroll=()=>{if(node)nearBottom.current=node.scrollHeight-node.scrollTop-node.clientHeight<100;};node?.addEventListener("scroll",scroll,{passive:true});return()=>node?.removeEventListener("scroll",scroll);},[room.id]);
+  const first=room.messages[0],last=room.messages.at(-1);
+  useLayoutEffect(()=>{
+    const node=scroller();if(!node)return;
+    const previous=before.current;
+    if(!previous || previous.roomId!==room.id){node.scrollTop=node.scrollHeight;nearBottom.current=true;}
+    else if(previous.first!==first?.id && previous.last===last?.id)node.scrollTop+=node.scrollHeight-previous.height;
+    else if(nearBottom.current || last?.optimistic)node.scrollTop=node.scrollHeight;
+    before.current={roomId:room.id,first:first?.id,last:last?.id,height:node.scrollHeight};
+  },[room.id,first?.id,last?.id,last?.content,room.messages.length,last?.optimistic]);
+  const time=(ts:number)=>ts?new Date(ts).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  return <div ref={root} data-testid="topic-thread" className="flex min-w-0 flex-col gap-3">
+    {room.telegram && <div className="flex flex-col items-center gap-2 text-[12px]">
+      {room.telegram.hasMore && <button disabled={room.telegram.historyLoading} onClick={()=>void loadTopicHistory(room.id,true)} className="rounded-full border border-[#dfe3ec] bg-white px-4 py-2 disabled:opacity-40">Load older messages</button>}
+      {room.telegram.historyLoading && <span role="status">Loading topic messages…</span>}
+      {room.telegram.historyError && <button className="text-red-700" onClick={()=>void loadTopicHistory(room.id,false,true)}>{room.telegram.historyError} · Retry</button>}
+    </div>}
+    {!room.messages.length && !room.telegram?.historyLoading && <div className={`${panel} px-5 py-6 text-[13px] text-[#8b8f99]`}>No messages yet.</div>}
+    {room.messages.map(m=>{
+      const agent=room.agents.find(a=>a.id===m.agentId);
+      if(m.role==="user")return <div key={m.id} data-message-id={m.id} className="ml-6 max-w-full self-end break-words rounded-[16px] rounded-br-[4px] bg-[#16171d] px-3.5 py-2.5 text-[13px] leading-relaxed text-white">
+        <div className="mb-1 text-[10px] text-white/70">{m.senderName ?? "You"} · {time(m.ts)}{m.optimistic ? " · Sending…" : ""}</div>
+        <div dir="auto" className="whitespace-pre-wrap">{m.content}</div>
+        {m.media && <div className="mt-1 text-[11px] text-white/70">📎 {m.media.name ?? m.media.type}</div>}
+      </div>;
+      return <div key={m.id} data-message-id={m.id} className="mr-4 flex min-w-0 gap-2">
+        {agent && <span className="shrink-0"><AgentAvatar look={agent.look} size={28}/></span>}
+        <div className={`min-w-0 break-words rounded-[16px] rounded-tl-[4px] px-3.5 py-2.5 text-[13px] leading-relaxed ${m.error ? "bg-red-50 text-red-700" : "bg-white/90 text-[#2a2d36] shadow-sm"}`}>
+          <div className="mb-1 text-[11px] font-semibold text-[#6c707b]">{agent?.name ?? m.senderName ?? (m.role==="system"?"System":"Bot")} · {time(m.ts)}</div>
+          <div dir="auto">{m.content ? <Markdown text={m.content}/> : m.streaming ? "typing…" : null}</div>
+          {m.media && <div className="mt-1 text-[11px]">📎 {m.media.name ?? m.media.type}</div>}
+        </div>
+      </div>;
+    })}
+  </div>;
 }
 
 const TABS = [

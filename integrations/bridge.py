@@ -55,7 +55,9 @@ import sqlite3
 import tempfile
 import time
 from aiohttp import ClientSession, ClientTimeout, web
-from telethon import TelegramClient, functions, types, utils
+from telethon import TelegramClient, functions, types, utils, events
+from thread_cache import ThreadCache
+from runtime_agents import collect_runtime_agents
 
 HERMES_HOME = Path('/root/.hermes')  # explicit default profile; never follows another profile
 SESSION_SOURCE = Path('/root/.telegram_sessions/telethon_user.session')
@@ -176,10 +178,10 @@ def read_hermes(path, selected):
 
 
 def parse_room(room_id):
-    match = re.fullmatch(r'tg-(hermes|claude-code)-([1-9][0-9]{0,9})', room_id) if isinstance(room_id, str) else None
+    match = re.fullmatch(r'tg-(hermes|claude-code|topic)-([1-9][0-9]{0,9})', room_id) if isinstance(room_id, str) else None
     if not match or int(match[2]) > 2147483647:
         raise BridgeError('Invalid roomId')
-    return match[1], match[2]
+    return ('hermes' if match[1] == 'topic' else match[1]), match[2]
 
 
 def send_text(text, username):
@@ -232,6 +234,15 @@ def read_env(path):
     return result
 
 
+def topic_metadata(topic, messages):
+    top_id = getattr(topic, 'top_message', 0)
+    post = next((m for m in messages if m.id == top_id), None)
+    date = getattr(post, 'date', None)
+    return {'name': safe_text(topic.title, 500), 'closed': bool(getattr(topic, 'closed', False)),
+            'lastMessageId': str(top_id), 'lastMessageAt': timestamp(date.timestamp()) * 1000 if date else 0,
+            'preview': safe_text(getattr(post, 'raw_text', ''), 300)}
+
+
 async def list_topics(client, group):
     """MTProto full pagination; General may require explicit by-ID lookup."""
     topics = {}
@@ -243,8 +254,7 @@ async def list_topics(client, group):
             offset_topic=offset_topic, limit=100))
         batch = [t for t in page.topics if hasattr(t, 'title')]
         for topic in batch:
-            topics[str(topic.id)] = {'name': safe_text(topic.title, 500),
-                                     'closed': bool(getattr(topic, 'closed', False))}
+            topics[str(topic.id)] = topic_metadata(topic, page.messages)
         if not batch or len(batch) < 100:
             break
         last = batch[-1]
@@ -259,7 +269,7 @@ async def list_topics(client, group):
         page = await client(functions.messages.GetForumTopicsByIDRequest(peer=group, topics=[1]))
         for topic in page.topics:
             if getattr(topic, 'id', None) == 1 and hasattr(topic, 'title'):
-                topics['1'] = {'name': safe_text(topic.title, 500), 'closed': bool(getattr(topic, 'closed', False))}
+                topics['1'] = topic_metadata(topic, page.messages)
     return dict(sorted(topics.items(), key=lambda item: int(item[0])))
 
 
@@ -280,6 +290,11 @@ class Broker:
         self._forum_lock = asyncio.Lock()
         self._snapshot_lock = asyncio.Lock()
         self.local_ok = True
+        self.cache = None
+        self.changed = asyncio.Event()
+        self.history_pages = {}
+        self.live_clients = 0
+        self.live_messages = {}
 
     def check_group(self):
         if self.group is None or self.group.id != 4374108988:
@@ -302,7 +317,7 @@ class Broker:
                                       if isinstance(v, str) and len(v) >= 8}, key=lambda v: (-len(v), v)))
         copy_session(SESSION_SOURCE, SESSION_COPY)
         self.client = TelegramClient(str(SESSION_COPY), int(api_id), api_hash,
-                                     receive_updates=False, flood_sleep_threshold=0)
+                                     receive_updates=True, flood_sleep_threshold=0)
         await self.client.connect()
         if not await self.client.is_user_authorized():
             raise BridgeError('Telegram session unauthorized; no interactive login attempted', 503)
@@ -314,6 +329,15 @@ class Broker:
             raise BridgeError('Approved forum not found', 503)
         self.http = ClientSession(timeout=ClientTimeout(total=15))
         await self.refresh_forum()
+        private=Path('/var/lib/arklyn-office/private')
+        private.mkdir(mode=0o700,exist_ok=True)
+        private.chmod(0o700)
+        self.cache = ThreadCache(private/'threads.sqlite')
+        self.client.add_event_handler(self.on_message, events.NewMessage(chats=GROUP_ID))
+        self.client.add_event_handler(self.on_message, events.MessageEdited(chats=GROUP_ID))
+        self.client.add_event_handler(self.on_delete, events.MessageDeleted(chats=GROUP_ID))
+        for post in await self.client.get_messages(GROUP_ID, limit=100):
+            self.store_post(post)
 
     async def bot_call(self, backend, method, payload=None):
         # URLs contain credentials: NEVER log exceptions, URLs, or raw responses.
@@ -359,8 +383,121 @@ class Broker:
             self.check_group()
             topics = await list_topics(self.client, self.group)
             bots = await asyncio.gather(self.bot_identity('hermes'), self.bot_identity('claude-code'))
+            for topic, info in topics.items():
+                old = self.topics.get(topic, {})
+                if old.get('lastMessageAt', 0) > info.get('lastMessageAt', 0):
+                    for field in ('lastMessageAt', 'lastMessageId', 'preview'):
+                        if field in old: info[field] = old[field]
             self.topics, self.bots = topics, bots
             self._forum_at = time.monotonic()
+
+    @staticmethod
+    def post_topic(post):
+        reply = getattr(post, 'reply_to', None)
+        if reply and getattr(reply, 'forum_topic', False):
+            return str(getattr(reply, 'reply_to_top_id', None) or getattr(reply, 'reply_to_msg_id', None) or 1)
+        return '1'
+
+    def project_post(self, post):
+        mid = getattr(post, 'id', None)
+        if not isinstance(mid, int) or mid <= 0: return None
+        topic = self.post_topic(post)
+        if topic not in self.topics: return None
+        text = safe_text(getattr(post, 'raw_text', '') or '')
+        sender_id = getattr(post, 'sender_id', None)
+        sender = getattr(post, 'sender', None)
+        backend = next((k for k,v in self.bot_ids.items() if v == sender_id), None)
+        is_bot = bool(backend or getattr(sender, 'bot', False))
+        name = safe_text(' '.join(filter(None, [getattr(sender,'first_name',None), getattr(sender,'last_name',None)])) or getattr(sender,'title',None) or (str(sender_id) if sender_id is not None else 'Telegram'), 120)
+        date = getattr(post, 'date', None)
+        message = {'id':str(mid),'role':'agent' if is_bot else 'user','content':text,
+            'ts':timestamp(date.timestamp())*1000 if date else 0,'senderName':name}
+        edited=getattr(post,'edit_date',None) or date
+        message['editedAt']=timestamp(edited.timestamp())*1000 if edited else 0
+        if sender_id is not None: message['senderId']=str(sender_id)
+        if is_bot: message['agentId']=backend or 'bot-'+str(sender_id)
+        media = None
+        if getattr(post, 'photo', None): media={'type':'photo'}
+        elif getattr(post, 'document', None):
+            file = getattr(post, 'file', None)
+            media={'type':safe_text(getattr(file,'mime_type',None) or 'document',100)}
+            if getattr(file,'name',None):media['name']=safe_text(file.name,300)
+        if media:
+            message['media']=media
+            if not text:message['content']='['+media['type']+(' · '+media['name'] if media.get('name') else '')+']'
+        if not message['content'].strip():return None
+        return topic,message
+
+    def store_post(self, post, live=False):
+        projected = self.project_post(post)
+        if not projected:return None
+        topic,message=projected
+        if self.cache and message['id'] in self.cache.removed(topic):return None
+        if self.cache:self.cache.put(topic,message)
+        info=self.topics[topic]
+        if int(message['id'])>=int(info.get('lastMessageId') or 0):
+            info.update(lastMessageId=message['id'],lastMessageAt=message['ts'],preview=message['content'][:300])
+        if live:
+            delta=self.live_messages.setdefault(topic,{})
+            delta.pop(message['id'],None);delta[message['id']]=message
+            while len(delta)>80:delta.pop(next(iter(delta)))
+        self._snapshot_at=-float('inf')
+        self.changed.set()
+        return message
+
+    async def on_message(self,event):
+        if event.chat_id != GROUP_ID:return
+        if self.post_topic(event.message) not in self.topics:
+            self._forum_at=-float('inf')
+            await self.refresh_forum()
+        self.store_post(event.message,live=True)
+
+    async def on_delete(self,event):
+        if event.chat_id != GROUP_ID:return
+        ids={str(mid) for mid in event.deleted_ids}
+        if self.cache:self.cache.delete(event.deleted_ids)
+        for delta in self.live_messages.values():
+            for mid in ids:delta.pop(mid,None)
+        for topic,info in self.topics.items():
+            if str(info.get('lastMessageId')) in ids:
+                newest=self.cache.messages(topic,1) if self.cache else []
+                info.update(lastMessageId=newest[-1]['id'] if newest else '0',lastMessageAt=newest[-1]['ts'] if newest else 0,preview=newest[-1]['content'][:300] if newest else '')
+        self._forum_at=self._snapshot_at=-float('inf')
+        self.history_pages.clear()
+        self.changed.set()
+
+    async def history(self,room_id,before=None):
+        _,topic=parse_room(room_id)
+        if before is not None and (not isinstance(before,str) or not re.fullmatch(r'[1-9][0-9]{0,9}',before)):
+            raise BridgeError('Invalid history cursor')
+        if before is not None and int(before)>2147483647:raise BridgeError('Invalid history cursor')
+        await self.refresh_forum();self.check_group()
+        if topic not in self.topics:raise BridgeError('Unknown forum topic',404)
+        key=(topic,before)
+        async with self._telegram_slots:
+            cached=self.history_pages.get(key)
+            if cached and time.monotonic()-cached[0]<20:return cached[1]
+            kwargs={'limit':81,'offset_id':int(before or 0)}
+            if topic != '1':kwargs['reply_to']=int(topic)
+            elif before is None and int(self.topics[topic].get('lastMessageId') or 0)>0:
+                kwargs['offset_id']=min(2147483647,int(self.topics[topic]['lastMessageId'])+1)
+            posts=await self.client.get_messages(GROUP_ID,**kwargs)
+            selected=[]
+            for post in posts:
+                item=self.project_post(post)
+                if item and item[0]==topic:selected.append((post,item[1]))
+            has_more=len(posts)>=81
+            if topic!='1':selected=selected[:80]
+            messages=[]
+            for post,message in selected:
+                self.store_post(post);messages.append(message)
+            messages.sort(key=lambda m:int(m['id']))
+            cursor=str(min(int(m['id']) for m in messages)) if messages else str(min(p.id for p in posts)) if posts else None
+            if topic=='1' and posts:cursor=str(min(p.id for p in posts))
+            value={'roomId':'tg-topic-'+topic,'messages':messages,'hasMore':has_more,'before':cursor if has_more else None}
+            if len(self.history_pages)>100:self.history_pages.clear()
+            self.history_pages[key]=(time.monotonic(),value)
+            return value
 
     async def recent_messages(self, backend, topic):
         """Read one bounded group-history batch, not one Telegram request per topic."""
@@ -423,30 +560,49 @@ class Broker:
             await self.refresh_forum()
             self.check_group()
             hermes, claude = await asyncio.to_thread(self.read_local)
+            workers = await asyncio.to_thread(collect_runtime_agents, hermes, claude)
             rooms = []
-            for bot in self.bots:
-                if bot['backend'] == 'claude-code' and not bot['ok']:
-                    continue
-                backend = bot['backend']
-                for topic, info in self.topics.items():
-                    room = {'id': f'tg-{backend}-{topic}', 'name': info['name'], 'backend': backend,
-                            'topicId': topic, 'messages': [], 'steps': [], 'busy': False}
-                    room.update((hermes if backend == 'hermes' else claude).get(topic, {}))
-                    rooms.append(room)
-            async def sync_room(room):
-                if self.bot_ids.get(room['backend']):
-                    recent = await self.recent_messages(room['backend'], room['topicId'])
-                    if recent:
-                        room['messages'] = recent
-            await asyncio.gather(*(sync_room(room) for room in rooms))
-            rooms.sort(key=lambda room: (room['backend'] != 'hermes', int(room['topicId'])))
+            for topic, info in self.topics.items():
+                local = hermes.get(topic, {})
+                room = {'id': f'tg-topic-{topic}', 'name': info['name'], 'backend': 'hermes',
+                        'topicId': topic, 'messages': sorted({m['id']:m for m in [*(self.cache.messages(topic) if self.cache else []),*self.live_messages.get(topic,{}).values()]}.values(),key=lambda m:int(m['id'])), 'steps': [{**s, 'agentId':'hermes'} for s in local.get('steps', [])],
+                        'busy': bool(local.get('busy')), 'agents': [],
+                        'lastMessageAt': info.get('lastMessageAt', 0),
+                        'historyLoaded': False, 'hasMore': True, 'before': None}
+                for field in ('sessionId', 'model'):
+                    if field in local:
+                        room[field] = local[field]
+                if claude.get(topic, {}).get('sessionId'):
+                    room['ccSessionId'] = claude[topic]['sessionId']
+                for field in ('lastMessageId', 'preview'):
+                    if field in info:
+                        room[field] = info[field]
+                for bot in self.bots:
+                    if bot['ok']:
+                        backend = bot['backend']
+                        room['agents'].append({'id': backend, 'name': bot['username'],
+                            'title': backend, 'backend': backend, 'kind': 'bot',
+                            'status': 'working' if backend == 'hermes' and room['busy'] else 'idle'})
+                known={a['id'] for a in room['agents']}
+                for message in room['messages']:
+                    actor=message.get('agentId')
+                    if actor and actor not in known:
+                        room['agents'].append({'id':actor,'name':message.get('senderName',actor),'title':'Telegram bot','kind':'bot','status':'idle'})
+                        known.add(actor)
+                room['agents'].extend(workers.get(topic, []))
+                room['deletedMessageIds'] = self.cache.removed(topic) if self.cache else []
+                rooms.append(room)
+            rooms.sort(key=lambda room: (-room['lastMessageAt'], -int(room.get('lastMessageId', '0')), int(room['topicId'])))
             self._snapshot = {'group': {'id': str(GROUP_ID), 'name': safe_text(self.group.title, 500)},
                               'bots': self.bots, 'rooms': rooms, 'updatedAt': time.time() * 1000}
             self._snapshot_at = time.monotonic()
             return self._snapshot
 
-    async def send(self, room_id, text):
+    async def send(self, room_id, text, requested_backend=None):
         backend, topic = parse_room(room_id)
+        if requested_backend is not None:
+            if requested_backend not in ('hermes', 'claude-code'): raise BridgeError('Invalid backend')
+            backend = requested_backend
         await self.refresh_forum()
         self.check_group()
         if topic not in self.topics:
@@ -468,11 +624,13 @@ class Broker:
                 raise ValueError('Delivery mismatch')
         except Exception:
             raise BridgeError('Message submitted but readback not verified; do not resend automatically', 502) from None
+        self.store_post(stored,live=True)
         self._telegram_cache.pop('group-history', None)
         self._snapshot_at = -float('inf')
         return {'ok': True, 'messageId': str(message.id), 'topicId': topic, 'roomId': room_id}
 
     async def close(self):
+        if self.cache: self.cache.close()
         if self.http:
             await self.http.close()
         if self.client:
@@ -796,11 +954,40 @@ def make_app(broker, key):
 
     async def send(request):
         body = await request_body(request)
-        if set(body) - {'roomId', 'text'}:
+        if set(body) - {'roomId', 'text', 'backend'}:
             raise BridgeError('Unexpected send fields')
-        return json_response(await broker.send(body.get('roomId'), body.get('text')))
+        return json_response(await broker.send(body.get('roomId'), body.get('text'), body.get('backend')))
+
+    async def history(request):
+        if set(request.query)-{'roomId','before'}:raise BridgeError('Unexpected history query')
+        return json_response(await broker.history(request.query.get('roomId'),request.query.get('before')))
+
+    async def live(request):
+        if broker.live_clients>=8:raise BridgeError('Too many live subscribers',429)
+        broker.live_clients+=1
+        response=web.StreamResponse(headers={'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','X-Accel-Buffering':'no'})
+        try:
+            await response.prepare(request)
+            previous=None
+            async with asyncio.timeout(780):
+                while request.transport is not None and not request.transport.is_closing():
+                    data=await broker.snapshot()
+                    signature=json.dumps({k:v for k,v in data.items() if k!='updatedAt'},sort_keys=True,ensure_ascii=False)
+                    if signature!=previous:
+                        payload=('event: snapshot\ndata: '+json.dumps(data,ensure_ascii=False,allow_nan=False)+'\n\n').encode()
+                        await asyncio.wait_for(response.write(payload),10)
+                        previous=signature
+                    else:await asyncio.wait_for(response.write(b': keepalive\n\n'),10)
+                    broker.changed.clear()
+                    try:await asyncio.wait_for(broker.changed.wait(),2)
+                    except asyncio.TimeoutError:pass
+        except (ConnectionError,asyncio.CancelledError,TimeoutError):pass
+        finally:broker.live_clients-=1
+        return response
 
     app.router.add_get('/health', health)
+    app.router.add_get('/history', history)
+    app.router.add_get('/stream', live)
     app.router.add_get('/snapshot', snapshot)
     app.router.add_post('/send', send)
     install_claude_routes(app)

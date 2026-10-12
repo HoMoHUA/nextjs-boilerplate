@@ -271,7 +271,7 @@ function AgentOverlays({
 }) {
   return (
     <>
-      <Overlay id={`${agent.id}:label`} z={10}>
+      <Overlay id={`${agent.id}:label`} z={10} clamp>
         <Label name={agent.name} tag={tag} active={selected} compact={compact} onClick={() => actions.selectAgent(agent.id)} />
       </Overlay>
       {agent.status === "working" && (
@@ -432,7 +432,7 @@ export default function OfficeScene({
     <div className="relative h-full w-full overflow-hidden">
       <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: true }} onPointerMissed={() => (document.body.style.cursor = "")}>
         <OrthographicCamera makeDefault position={[20, 17, 20]} near={-50} far={200} zoom={50} />
-        {compact ? <FitToAgents spots={ordered.map((_, i) => spotOf(i))} padTop={16} padBottom={padBottom} padRight={padRight} /> : <ResponsiveZoom />}
+        {compact || room.telegram ? <FitToAgents spots={ordered.map((_, i) => spotOf(i))} padTop={16} padBottom={padBottom} padRight={padRight} /> : <ResponsiveZoom />}
         <Projector />
         <OrbitControls
           makeDefault

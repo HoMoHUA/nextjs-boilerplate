@@ -132,6 +132,8 @@ export function RoomPanel({
             <div
               key={r.id}
               role="button"
+              data-room-id={r.id}
+              data-last-message-at={r.lastMessageAt ?? 0}
               tabIndex={0}
               onClick={pick(() => actions.selectRoom(r.id))}
               onKeyDown={(e) => e.key === "Enter" && actions.selectRoom(r.id)}
@@ -141,8 +143,9 @@ export function RoomPanel({
               <span className="text-[30px] leading-none">{r.emoji}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[14.5px] font-semibold text-[#1d1f26]">{r.name}</span>
-                <span className="block text-[11.5px] text-[#7a7e89]">
-                  {r.agents.length} agents · {r.outputs.length} outputs
+                {r.telegram && <span className="mt-1 block truncate text-[11.5px] text-[#5d6170]">{r.preview || "No messages yet"}</span>}
+                <span className="mt-1 block text-[10.5px] text-[#7a7e89]">
+                  {r.agents.length} agents{r.telegram ? ` · ${r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : ""}` : ` · ${r.outputs.length} outputs`}
                 </span>
               </span>
               <RoomMenu room={r} onEdit={() => onEditRoom(r.id)} />

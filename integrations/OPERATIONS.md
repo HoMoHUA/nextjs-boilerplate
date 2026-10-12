@@ -44,6 +44,26 @@ systemctl restart arklyn-office.service
 ```
 For Python bridge changes restart only `arklyn-office-bridge.service`; for scoped bot-source changes run its routing tests and restart only `claude-bot.service`. Never restart the live Hermes gateway as part of an Office frontend deployment.
 
+## Live topic contract
+- One canonical `tg-topic-N` room per actual forum topic, ordered by latest Telegram message date/ID. Existing legacy send aliases remain accepted; topic 7785 is only relabeled in the browser.
+- The copied user session receives MTProto new/edit/delete events. `/stream` is an authenticated SSE feed; the client reconnects and only uses bounded polling as a fallback. Never add a second Bot API poller.
+- `/history?roomId=tg-topic-N&before=ID` reads only the selected topic and paginates older messages. General starts at its own latest message in group history; its cursor skips already scanned group windows.
+- Canonical message IDs, sender identities, captions and attachment metadata are used, not internal model transcripts. Actual file/photo bytes are not served yet.
+- The private bounded SQLite cache is `/var/lib/arklyn-office/private/threads.sqlite` (root0700 parent, root0600 file). Keep tombstones for evicted messages and live edits outside the latest history window. Use Telegram edit timestamps to reject stale history overwrites.
+- Connected topics project actual member bots plus real owner-scoped Hermes/Claude delegated-session records. Runtime workers are read-only; sends choose the actual Hermes/Claude bot backend, never a worker ID. Closed worker sessions are recorded as ended, not proof that their assignment succeeded.
+- Client loading flags are transient: derive them from live request controllers, not browser storage, so interrupted history requests cannot permanently block a reopened thread.
+- Telegram rooms use occupied-seat camera fitting and clamped labels. Preserve selection and loaded older pages while new messages reorder the Room list.
+- Browser API requests in Playwright must use `page.evaluate(fetch(...))` when Chromium uses a hostname-to-loopback override; APIRequestContext ignores that browser mapping and may expose cookies in exception traces.
+
+Additional checks:
+```
+/root/.telegram_env/bin/python -m unittest discover -s /opt/arklyn-office/integrations -p 'test*bridge.py' -v
+/root/.telegram_env/bin/python -m unittest discover -s /opt/arklyn-office/integrations -p test_runtime_agents.py -v
+node /opt/arklyn-office/integrations/run_topic_tests.cjs
+uv run --with playwright python /opt/arklyn-office/integrations/qa_topics.py
+```
+`qa_topics.py` verifies a real temporary bot message, its edit and its deletion without requesting a model turn. It removes exactly its own diagnostic message. Compare topic counts with the actual API, not old fixed totals.
+
 ## Integration invariants
 - Client timestamps are milliseconds; Python database/Telegram timestamps must be converted.
 - POST messageId equals the canonical Telegram snapshot ID exactly. Database IDs are not delivery acknowledgements.

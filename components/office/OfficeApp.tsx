@@ -99,11 +99,12 @@ export default function OfficeApp() {
   }, []);
   useTicker();
 
-  const cc = room.backend === "claude-code";
-  const bot = s.integrations?.bots.find((b) => b.backend === room.backend);
+  const targetBackend = room.telegram ? room.agents.find(a=>a.id===s.targetAgentId)?.backend ?? room.backend : room.backend;
+  const cc = targetBackend === "claude-code";
+  const bot = s.integrations?.bots.find((b) => b.backend === targetBackend);
   const badge = room.telegram
     ? { ok: s.integrations?.phase === "synced" && !!bot?.ok,
-        label: cc ? "Claude Code · Telegram" : "Hermes · Telegram", hint: room.telegram.model ?? `Topic ${room.telegram.topicId}` }
+        label: cc ? "Claude Code · Telegram" : "Hermes · Telegram", hint: (!cc && room.telegram.model) || `Topic ${room.telegram.topicId}` }
     : cc
     ? claudeCode?.enabled
       ? { ok: true, label: "claude code", hint: claudeCode.cwd ?? "" }
