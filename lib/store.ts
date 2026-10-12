@@ -149,7 +149,7 @@ function connectedRoom(snapshot: IntegrationSnapshot, source: IntegrationSnapsho
     activity,
   };
   return {
-    id: source.id, name: source.name, emoji: source.backend === "hermes" ? "🏡" : "🧑‍💻", backend: source.backend,
+    id: source.id, name: source.topicId === "7785" ? "Hojat's Team" : source.name, emoji: source.backend === "hermes" ? "🏡" : "🧑‍💻", backend: source.backend,
     agents: [lead], messages: [...authoritative, ...pendingMessages.map((p) => ({
       id: p.clientId, role: "user" as const, content: p.content, ts: p.ts,
     })), ...(previous?.messages.filter((m) => m.error) ?? [])],

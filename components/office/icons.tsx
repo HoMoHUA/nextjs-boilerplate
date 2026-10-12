@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 type P = { className?: string };
 const base = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
@@ -57,15 +59,12 @@ export const Stop = ({ className }: P) => (
   <svg viewBox="0 0 24 24" width="18" height="18" className={className} fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2" /></svg>
 );
 
-export function Logo() {
+/** Official transparent Arklyn artwork; the dark backing preserves its cream text. */
+export function Logo({ className = "h-[52px] w-[52px]" }: P) {
   return (
-    <svg viewBox="0 0 64 64" width="52" height="52" aria-hidden>
-      <ellipse cx="32" cy="52" rx="24" ry="6" fill="#7fbf6a" />
-      <path d="M8 50 L26 18 L44 50 Z" fill="#f08a3c" />
-      <path d="M26 18 L44 50 L34 50 Z" fill="#d76a25" />
-      <path d="M22 50 L26 38 L30 50 Z" fill="#7a3d18" />
-      <path d="M44 8 L36 26 H40 L33 38 H39 L32 50 H56 L49 38 H55 L48 26 H52 Z" fill="#2f7d4a" />
-      <rect x="43" y="48" width="2.5" height="5" fill="#6b4226" />
-    </svg>
+    <span className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#203029] ${className}`}>
+      <Image src="/arklyn-logo.svg" alt="Arklyn Office" width={52} height={52}
+        unoptimized priority className="h-full w-full object-contain" />
+    </span>
   );
 }

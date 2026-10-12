@@ -157,6 +157,7 @@ export default function OfficeApp() {
           <button onClick={() => setDrawer(true)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/80 shadow-sm" aria-label="Rooms">
             <Menu />
           </button>
+          <Logo className="h-9 w-9" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               {s.view === "room" && <span className="text-[17px]">{room.emoji}</span>}

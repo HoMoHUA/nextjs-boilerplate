@@ -1,5 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <title>Arklyn Office</title>
-  <rect width="64" height="64" rx="14" fill="#16171d" />
-  <path d="M16 48 29 16h6l13 32h-8l-3-8H27l-3 8zm13-15h6l-3-9z" fill="#ffffff" fill-rule="evenodd" />
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><g transform="translate(512 439) scale(1.5892420537897312) translate(-502.5 -418.5)">
+<path d="M298 578L461 259H542L379 578Z" fill="#b9d7ad"/>
+<path d="M546 259L707 578H624L464 259Z" fill="#eee9d8"/>
+<path d="M431 499H562L601 576H392Z" fill="#7fa486"/>
+</g>
+<text x="512" y="818" text-anchor="middle" font-family="DejaVu Sans" font-size="57" font-weight="600" letter-spacing="10" fill="#eee9d8">ARKLYN</text>
+<text x="512" y="871" text-anchor="middle" font-family="DejaVu Sans" font-size="26" letter-spacing="3" fill="#b9d7ad">STUDIO</text></svg>
