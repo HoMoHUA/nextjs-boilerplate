@@ -76,6 +76,44 @@ export interface Output {
   ts: number;
 }
 
+export interface IntegrationSnapshot {
+  group: { id: string | number; name: string };
+  bots: { backend: Backend; username: string; ok: boolean }[];
+  rooms: {
+    id: string;
+    name: string;
+    backend: Backend;
+    topicId: string;
+    sessionId?: string;
+    model?: string;
+    messages: Pick<Message, "id" | "role" | "content" | "ts">[];
+    steps: { id: string; title: string; description: string; status: "done" | "running"; ts: number }[];
+    busy: boolean;
+  }[];
+  updatedAt: number;
+}
+
+export interface TelegramBinding {
+  groupId: string;
+  topicId: string;
+  sessionId?: string;
+  model?: string;
+  busy: boolean;
+  delivery?: "posting" | "queued" | "error";
+  error?: string;
+  /** Only unobserved optimistic messages are retained alongside snapshots. */
+  pendingMessages: { clientId: string; messageId?: string; content: string; ts: number; priorUserIds: string[] }[];
+  awaitingReply?: { messageId?: string; ts: number; priorAgentIds: string[] };
+}
+
+export interface IntegrationStatus {
+  phase: "connecting" | "synced" | "error";
+  group?: IntegrationSnapshot["group"];
+  bots: IntegrationSnapshot["bots"];
+  updatedAt?: number;
+  error?: string;
+}
+
 export interface Room {
   id: string;
   name: string;
@@ -88,6 +126,7 @@ export interface Room {
   startedAt: number;
   unread: boolean;
   backend: Backend;
+  telegram?: TelegramBinding;
   /** Claude Code session to resume, so the room keeps its context. */
   ccSessionId?: string;
   costUsd?: number;
@@ -129,4 +168,5 @@ export interface OfficeState {
   panelCollapsed: boolean;
   focusOutputId: string | null;
   fx: Fx[];
+  integrations?: IntegrationStatus;
 }

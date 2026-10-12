@@ -13,9 +13,9 @@ import {
   toChatMessages,
 } from "./protocol";
 import { lookFor, seedState, uid } from "./seed";
-import type { Agent, AgentStatus, Fx, OfficeState, Room, Step } from "./types";
+import type { Agent, AgentStatus, Fx, IntegrationSnapshot, OfficeState, Room, Step } from "./types";
 
-const STORAGE_KEY = "hermes-office-v2";
+const STORAGE_KEY = "arklyn-office-v3";
 const APPROVAL_TTL = 10 * 60 * 1000;
 const MAX_DELEGATION_DEPTH = 2;
 
@@ -49,7 +49,7 @@ function persist() {
     const clean: OfficeState = {
       ...state,
       fx: [],
-      rooms: state.rooms.map((r) => ({
+      rooms: state.rooms.map((r) => r.telegram ? r : ({
         ...r,
         messages: r.messages.filter((m) => !m.streaming),
         steps: r.steps.map((s) => (s.status === "running" ? { ...s, status: "done" as const } : s)),
@@ -72,7 +72,15 @@ export function hydrate() {
           ...seedState(),
           ...saved,
           fx: [],
-          rooms: saved.rooms.map((r) => ({ ...r, backend: r.backend ?? "hermes" })),
+          integrations: { phase: "connecting", bots: [] },
+          activeRoomId: saved.rooms.some((r) => r.id === saved.activeRoomId) ? saved.activeRoomId : saved.rooms[0].id,
+          rooms: saved.rooms.map((r) => ({ ...r, backend: r.backend ?? "hermes",
+            ...(r.telegram?.delivery === "posting" ? {
+              telegram: { ...r.telegram, delivery: "error" as const,
+                error: "Page closed during posting; delivery is unconfirmed. Check Telegram before retrying.", awaitingReply: undefined },
+              agents: r.agents.map((a) => ({ ...a, status: "idle" as const, activity: undefined })),
+            } : {}),
+          })),
         }));
     }
   } catch {
@@ -103,10 +111,119 @@ function setAgentStatus(roomId: string, agentId: string, status: AgentStatus) {
   }));
 }
 
+/* ---------- authoritative Telegram snapshots ---------- */
+
+let initialIntegrationSelection = true;
+let userSelectedRoom = false;
+const telegramPosts = new Set<string>();
+
+export const isTelegramPosting = (roomId: string) => telegramPosts.has(roomId);
+
+function connectedRoom(snapshot: IntegrationSnapshot, source: IntegrationSnapshot["rooms"][number], previous?: Room): Room {
+  const agentId = `${source.id}-lead`;
+  const authoritative = [...new Map(source.messages.map((m) => [m.id, {
+    ...m, agentId: m.role === "agent" ? agentId : undefined,
+  }])).values()].sort((a, b) => a.ts - b.ts);
+  // Prefer exact broker ids. Before POST returns, only match new user ids and recent text.
+  const pendingMessages = (previous?.telegram?.pendingMessages ?? []).filter((p) => {
+    const observed = authoritative.find((m) => p.messageId ? m.id === p.messageId
+      : m.role === "user" && m.content === p.content && !(p.priorUserIds ?? []).includes(m.id) && m.ts >= p.ts - 5000);
+    return !observed;
+  });
+  let awaitingReply = previous?.telegram?.awaitingReply;
+  const sent = awaitingReply?.messageId && authoritative.find((m) => m.id === awaitingReply?.messageId);
+  const replyObserved = awaitingReply && sent && authoritative.some(
+    (m) => m.role === "agent" && !awaitingReply!.priorAgentIds.includes(m.id) && m.ts >= sent.ts,
+  );
+  if (replyObserved) awaitingReply = undefined;
+  const delivery = telegramPosts.has(source.id) ? "posting" : previous?.telegram?.delivery === "error"
+    ? "error" : awaitingReply ? "queued" : undefined;
+  const working = source.busy || source.steps.some((s) => s.status === "running") || delivery === "posting";
+  const activity = delivery === "posting" ? "Posting to Telegram…" : working
+    ? source.steps.findLast((s) => s.status === "running")?.description || "Working in Telegram…"
+    : awaitingReply ? "Delivery queued · awaiting a real reply" : undefined;
+  const lead: Agent = {
+    id: agentId, name: source.backend === "hermes" ? "Hermes" : "Claude Code",
+    title: "Telegram · Lead", persona: "", isLead: true, look: lookFor(agentId),
+    status: working ? "working" : !awaitingReply && delivery !== "error" && authoritative.at(-1)?.role === "agent" ? "done" : "idle",
+    activity,
+  };
+  return {
+    id: source.id, name: source.name, emoji: source.backend === "hermes" ? "🏡" : "🧑‍💻", backend: source.backend,
+    agents: [lead], messages: [...authoritative, ...pendingMessages.map((p) => ({
+      id: p.clientId, role: "user" as const, content: p.content, ts: p.ts,
+    })), ...(previous?.messages.filter((m) => m.error) ?? [])],
+    steps: source.steps.map((s) => ({ ...s, agentId, progress: s.status === "done" ? 100 : undefined })),
+    approvals: [], outputs: [], startedAt: previous?.startedAt ?? authoritative[0]?.ts ?? Date.now(),
+    unread: previous?.unread || (getState().activeRoomId !== source.id && authoritative.some(
+      (m) => m.role === "agent" && !previous?.messages.some((old) => old.id === m.id),
+    )),
+    telegram: { groupId: String(snapshot.group.id), topicId: source.topicId,
+      sessionId: source.sessionId, model: source.model, busy: source.busy,
+      delivery, error: previous?.telegram?.error, pendingMessages, awaitingReply },
+  };
+}
+
+export function mergeIntegrations(snapshot: IntegrationSnapshot) {
+  if (snapshot.updatedAt < (getState().integrations?.updatedAt ?? 0)) return;
+  setState((s) => {
+    const connected = snapshot.rooms.map((r) => connectedRoom(snapshot, r, s.rooms.find((old) => old.id === r.id)));
+    const missingPending = s.rooms.filter((r) => r.telegram && !connected.some((c) => c.id === r.id)
+      && (telegramPosts.has(r.id) || r.telegram.pendingMessages.length || r.telegram.awaitingReply || r.telegram.delivery === "error"));
+    const merged = [...connected, ...missingPending, ...s.rooms.filter((r) => !r.telegram)];
+    const rooms = merged.length ? merged : seedState().rooms;
+    const initial = initialIntegrationSelection && !userSelectedRoom
+      ? connected.find((r) => r.telegram?.topicId === "7785") ?? connected[0] : undefined;
+    if (connected.length) initialIntegrationSelection = false;
+    const active = initial ?? rooms.find((r) => r.id === s.activeRoomId) ?? rooms[0];
+    const changed = active.id !== s.activeRoomId;
+    return { ...s, rooms, activeRoomId: active.id,
+      selectedAgentId: changed ? leadOf(active).id : s.selectedAgentId,
+      targetAgentId: changed ? leadOf(active).id : s.targetAgentId,
+      integrations: { phase: "synced", group: snapshot.group, bots: snapshot.bots, updatedAt: snapshot.updatedAt } };
+  });
+}
+
+/** One poll at a time, including effect cleanup and Strict Mode remounts. */
+export function startIntegrationPolling(): () => void {
+  let stopped = false;
+  let controller: AbortController | undefined;
+  let polling = false;
+  async function poll() {
+    if (stopped || polling) return;
+    polling = true;
+    controller = new AbortController();
+    // Bound stalled requests so the connection strip can show an error and retry.
+    const deadline = setTimeout(() => controller?.abort(), 20000);
+    try {
+      const response = await fetch("/api/integrations", { signal: controller.signal, cache: "no-store" });
+      if (!response.ok) throw new Error(`Telegram sync failed (${response.status})`);
+      const snapshot = await response.json() as IntegrationSnapshot;
+      if (!Array.isArray(snapshot.rooms) || !Array.isArray(snapshot.bots) || !snapshot.group
+        || !Number.isFinite(snapshot.updatedAt)) throw new Error("Invalid Telegram snapshot");
+      if (!stopped) mergeIntegrations(snapshot);
+    } catch (error) {
+      if (!stopped) setState((s) => ({ ...s, integrations: {
+        ...s.integrations, bots: s.integrations?.bots ?? [], phase: "error",
+        error: error instanceof Error && error.name !== "AbortError" ? error.message : "Telegram sync timed out",
+      } }));
+    } finally {
+      clearTimeout(deadline);
+      polling = false;
+    }
+  }
+  setState((s) => ({ ...s, integrations: { ...s.integrations, bots: s.integrations?.bots ?? [], phase: "connecting" } }));
+  void poll();
+  const interval = setInterval(() => void poll(), 8000);
+  return () => { stopped = true; controller?.abort(); clearInterval(interval); };
+}
+
 /* ---------- actions ---------- */
 
 export const actions = {
   selectRoom(id: string) {
+    if (!getState().rooms.some((r) => r.id === id)) return;
+    userSelectedRoom = true;
     setState((s) => {
       const room = s.rooms.find((r) => r.id === id);
       const lead = room ? leadOf(room) : undefined;
@@ -121,6 +238,7 @@ export const actions = {
     });
   },
   set<K extends keyof OfficeState>(key: K, value: OfficeState[K]) {
+    if (key === "activeRoomId") userSelectedRoom = true;
     setState((s) => ({ ...s, [key]: value }));
   },
   selectAgent(id: string) {
@@ -144,6 +262,7 @@ export const actions = {
     actions.selectRoom(room.id);
   },
   removeRoom(id: string) {
+    if (getState().rooms.find((r) => r.id === id)?.telegram) return;
     setState((s) => {
       const rooms = s.rooms.filter((r) => r.id !== id);
       if (!rooms.length) return s;
@@ -156,12 +275,15 @@ export const actions = {
     });
   },
   renameRoom(id: string, name: string, emoji: string, backend?: Room["backend"]) {
+    if (getState().rooms.find((r) => r.id === id)?.telegram) return;
     updateRoom(id, (r) => ({ ...r, name, emoji, backend: backend ?? r.backend, ccSessionId: backend && backend !== r.backend ? undefined : r.ccSessionId }));
   },
   setAgents(roomId: string, agents: Agent[]) {
+    if (getState().rooms.find((r) => r.id === roomId)?.telegram) return;
     updateRoom(roomId, (r) => ({ ...r, agents }));
   },
   clearRoom(roomId: string) {
+    if (getState().rooms.find((r) => r.id === roomId)?.telegram) return;
     updateRoom(roomId, (r) => ({
       ...r,
       messages: [],
@@ -399,6 +521,8 @@ const controllers = new Map<string, AbortController>();
 /** Stops whatever is running for this agent (in a Claude Code room the whole room's turn). */
 export function stopAgent(agentId: string) {
   const room = getState().rooms.find((r) => r.agents.some((a) => a.id === agentId));
+  // There is no broker cancellation API; never fake stopping a server turn.
+  if (room?.telegram) return;
   const ctrl = controllers.get(agentId) ?? (room ? controllers.get(room.id) : undefined);
   if (ctrl) return ctrl.abort();
   // nothing is running (e.g. restored or demo state): just settle the agent
@@ -412,9 +536,65 @@ export function stopAgent(agentId: string) {
     }));
 }
 
+async function sendTelegramMessage(room: Room, text: string) {
+  if (telegramPosts.has(room.id)) return;
+  telegramPosts.add(room.id);
+  const clientId = uid("tg-pending");
+  const ts = Date.now();
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), 30000);
+  updateRoom(room.id, (r) => ({
+    ...r, messages: [...r.messages, { id: clientId, role: "user", content: text, ts }],
+    telegram: { ...r.telegram!, delivery: "posting", error: undefined,
+      pendingMessages: [...r.telegram!.pendingMessages, { clientId, content: text, ts,
+        priorUserIds: r.messages.filter((m) => m.role === "user").map((m) => m.id) }],
+      awaitingReply: { ts, priorAgentIds: r.messages.filter((m) => m.role === "agent").map((m) => m.id) } },
+    agents: r.agents.map((a) => ({ ...a, status: "working", activity: "Posting to Telegram…" })),
+  }));
+  try {
+    const response = await fetch("/api/integrations/send", {
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
+      body: JSON.stringify({ roomId: room.id, text }),
+    });
+    const result = await response.json() as { ok?: boolean; messageId?: string | number; roomId?: string; error?: string };
+    if (!response.ok || result.ok !== true || result.messageId === undefined || result.roomId !== room.id)
+      throw new Error(result.error || `Telegram post failed (${response.status})`);
+    const messageId = String(result.messageId);
+    updateRoom(room.id, (r) => {
+      const observed = r.messages.find((m) => m.id === messageId);
+      const awaitingReply = { ...r.telegram!.awaitingReply!, messageId };
+      const replied = observed && r.messages.some((m) => m.role === "agent"
+        && !awaitingReply.priorAgentIds.includes(m.id) && m.ts >= observed.ts);
+      return { ...r,
+        messages: observed ? r.messages.filter((m) => m.id !== clientId) : r.messages,
+        telegram: { ...r.telegram!, delivery: replied ? undefined : "queued", awaitingReply: replied ? undefined : awaitingReply,
+          pendingMessages: r.telegram!.pendingMessages.flatMap((p) => p.clientId !== clientId ? [p]
+            : observed ? [] : [{ ...p, messageId }]) },
+        agents: r.agents.map((a) => ({ ...a, status: r.telegram!.busy || r.steps.some((s) => s.status === "running") ? "working" : replied ? "done" : "idle",
+          activity: r.telegram!.busy ? "Working in Telegram…" : replied ? undefined : "Delivery queued · awaiting a real reply" })),
+      };
+    });
+  } catch (error) {
+    const message = error instanceof Error && error.name !== "AbortError" ? error.message
+      : "Telegram post timed out; delivery is unconfirmed. Check the topic before retrying.";
+    updateRoom(room.id, (r) => ({
+      ...r,
+      messages: [...r.messages.filter((m) => m.id !== clientId),
+        { id: uid("tg-error"), role: "system", content: `Telegram delivery error: ${message}\nRequest: ${text}`, ts: Date.now(), error: true }],
+      telegram: { ...r.telegram!, delivery: "error", error: message, awaitingReply: undefined,
+        pendingMessages: r.telegram!.pendingMessages.filter((p) => p.clientId !== clientId) },
+      agents: r.agents.map((a) => ({ ...a, status: "idle", activity: undefined })),
+    }));
+  } finally {
+    clearTimeout(deadline);
+    telegramPosts.delete(room.id);
+  }
+}
+
 export async function sendMessage(roomId: string, text: string, targetAgentId?: string | null) {
   const room = getState().rooms.find((r) => r.id === roomId);
   if (!room || !text.trim()) return;
+  if (room.telegram) return sendTelegramMessage(room, text.trim());
 
   // "@Name ..." overrides the target
   let body = text.trim();

@@ -12,7 +12,7 @@ export function claudeCodeConfig() {
       : !process.env.VERCEL && process.env.NODE_ENV !== "production",
     cwd: process.env.CLAUDE_CODE_CWD || process.cwd(),
     model: process.env.CLAUDE_CODE_MODEL || undefined,
-    permissionMode: (process.env.CLAUDE_CODE_PERMISSION_MODE || "acceptEdits") as
+    permissionMode: (process.env.CLAUDE_CODE_PERMISSION_MODE || "default") as
       | "default"
       | "acceptEdits"
       | "bypassPermissions"

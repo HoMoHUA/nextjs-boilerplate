@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return Response.json({
     ok: true,
-    app: "hermes-office",
+    app: "arklyn-office",
     version: pkg.version,
     auth: authEnabled(),
     hermes: hermesConfig().live ? "live" : "demo",

@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     upstream = await fetch(`${cfg.base}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders(cfg.key) },
-      body: JSON.stringify({ model: cfg.model, messages, stream: true }),
+      body: JSON.stringify({ model: cfg.model, provider: process.env.HERMES_PROVIDER || undefined, messages, stream: true }),
       signal: req.signal,
     });
   } catch (err) {

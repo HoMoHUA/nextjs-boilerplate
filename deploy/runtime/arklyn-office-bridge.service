@@ -1,0 +1,17 @@
+[Unit]
+Description=Arklyn Office private Telegram and Claude Code bridge
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/arklyn-office
+EnvironmentFile=/etc/arklyn-office/backend.env
+ExecStart=/root/.telegram_env/bin/python /opt/arklyn-office/integrations/bridge.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+MemoryMax=1000M
+NoNewPrivileges=true
+[Install]
+WantedBy=multi-user.target

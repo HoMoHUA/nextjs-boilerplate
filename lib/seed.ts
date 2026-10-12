@@ -5,14 +5,8 @@ export const uid = (p = "id") =>
   `${p}_${Date.now().toString(36)}_${(counter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 const look = (l: Partial<AgentLook>): AgentLook => ({
-  skin: "#f6c9a8",
-  hair: "#7a4a2b",
-  hairStyle: "short",
-  shirt: "#3f7d5a",
-  accent: "#f08a6c",
-  pants: "#e9e1d3",
-  glasses: false,
-  ...l,
+  skin: "#f6c9a8", hair: "#7a4a2b", hairStyle: "short", shirt: "#3f7d5a",
+  accent: "#f08a6c", pants: "#e9e1d3", glasses: false, ...l,
 });
 
 export const LOOK_PRESETS: AgentLook[] = [
@@ -25,26 +19,14 @@ export const LOOK_PRESETS: AgentLook[] = [
 ];
 
 const agent = (
-  name: string,
-  title: string,
-  persona: string,
-  lookIdx: number,
-  isLead = false,
-  source?: AgentSource,
-  subagentId?: string,
+  name: string, title: string, persona: string, lookIdx: number,
+  isLead = false, source?: AgentSource, subagentId?: string,
 ): Agent => ({
-  id: uid("ag"),
-  name,
-  title,
-  persona,
-  isLead,
-  status: "idle",
-  look: LOOK_PRESETS[lookIdx % LOOK_PRESETS.length],
-  source,
-  subagentId,
+  id: uid("ag"), name, title, persona, isLead, status: "idle",
+  look: LOOK_PRESETS[lookIdx % LOOK_PRESETS.length], source, subagentId,
 });
 
-/** Stable look for a subagent that shows up at runtime (e.g. Claude Code's built-in Explore). */
+/** Stable look for a subagent that shows up at runtime. */
 export function lookFor(key: string): AgentLook {
   let h = 0;
   for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -52,131 +34,28 @@ export function lookFor(key: string): AgentLook {
 }
 
 export const slug = (name: string) =>
-  name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "") || "agent";
+  name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agent";
 
 const emptyRoom = (name: string, emoji: string, agents: Agent[], backend: Backend = "hermes"): Room => ({
-  backend,
-  id: uid("room"),
-  name,
-  emoji,
-  agents,
-  messages: [],
-  steps: [],
-  approvals: [],
-  outputs: [],
-  startedAt: Date.now(),
-  unread: false,
+  backend, id: uid("room"), name, emoji, agents,
+  messages: [], steps: [], approvals: [], outputs: [], startedAt: Date.now(), unread: false,
 });
 
+/** Independent workspaces only; connected rooms are supplied by the broker. */
 export function seedState(): OfficeState {
-  const now = Date.now();
-
-  const ara = agent("Ara", "Right Hand · Generalist", "You coordinate the team, break work down and delegate.", 0, true);
-  const miro = agent("Miro", "Researcher · Strategist", "You research markets, channels and audiences and write plans.", 1);
-  const noa = agent("Noa", "Copywriter", "You write launch copy, emails and social posts in a warm, crisp voice.", 2);
-  const sol = agent("Sol", "Analyst · Designer", "You analyse numbers and propose visual direction.", 3);
-  noa.status = "needs_you";
-  miro.status = "working";
-
-  const marketing = emptyRoom("Marketing team", "📣", [ara, miro, noa, sol]);
-  marketing.startedAt = now - (11 * 60 + 7) * 1000;
-  const planId = uid("out");
-  marketing.outputs = [
-    {
-      id: planId,
-      agentId: noa.id,
-      title: "September channel plan — launch copy",
-      content:
-        "Headline: Meet the office that works while you sleep.\n\nSub: Your AI team plans, drafts and ships — you just approve.\n\nChannels: Newsletter (Tue), LinkedIn (Wed), X thread (Thu), Product Hunt (next Mon).",
-      status: "draft",
-      ts: now - 60_000,
-    },
-    {
-      id: uid("out"),
-      agentId: miro.id,
-      title: "Audience research notes",
-      content: "Top segments: solo founders, small agencies, ops leads.\nBest performing channel last month: newsletter (CTR 4.1%).",
-      status: "approved",
-      ts: now - 300_000,
-    },
-  ];
-  marketing.approvals = [
-    {
-      id: uid("apr"),
-      agentId: noa.id,
-      text: "September channel plan is drafted. The launch copy needs your approval before it goes live.",
-      outputId: planId,
-      createdAt: now - 2_000,
-      expiresAt: now + 598_000,
-      status: "pending",
-    },
-  ];
-  marketing.steps = [
-    { id: uid("st"), agentId: miro.id, title: "Read your message", description: "Parsed the brief for the September launch.", status: "done", ts: now - 400_000 },
-    { id: uid("st"), agentId: miro.id, title: "Read your message", description: "Pulled last month's channel numbers.", status: "done", ts: now - 300_000 },
-    { id: uid("st"), agentId: miro.id, title: "Read your message", description: "Carried over from Ara · latest output Approved. Running it", status: "done", ts: now - 200_000, handoff: true },
-    { id: uid("st"), agentId: miro.id, title: "Still working", description: "Drafting the channel calendar.", status: "running", progress: 57, ts: now - 60_000 },
-    { id: uid("st"), agentId: miro.id, title: "More coming", description: "Will hand the calendar to Sol for visuals.", status: "pending", ts: now },
-  ];
-  marketing.messages = [
-    { id: uid("msg"), role: "user", content: "Plan the September launch across our channels.", ts: now - 420_000 },
-    { id: uid("msg"), role: "agent", agentId: ara.id, content: "On it — Miro takes research and the calendar, Noa drafts the launch copy, Sol will prep visuals.", ts: now - 410_000 },
-    { id: uid("msg"), role: "agent", agentId: noa.id, content: "September channel plan is drafted. The launch copy needs your approval before it goes live.", ts: now - 2_000 },
-  ];
-
+  const hermes = agent("Hermes", "Lead · Generalist", "You coordinate work and delegate when needed.", 0, true);
   const rooms: Room[] = [
-    marketing,
-    emptyRoom("New project leading team", "🚀", [
-      agent("Kai", "Project Lead", "You own scope, timeline and risks for new projects.", 4, true),
-      agent("Lin", "Planner", "You turn goals into milestones and tasks.", 1),
-      agent("Rui", "Researcher", "You research prior art and competitors.", 5),
-    ]),
-    emptyRoom("Dev & QA team", "🧪", [
-      agent("Dex", "Tech Lead", "You design systems and review code.", 5, true),
-      agent("Ivy", "Engineer", "You implement features and fix bugs.", 2),
-      agent("Qin", "QA Engineer", "You write test plans and find bugs.", 3),
-    ]),
-    emptyRoom("Product & Design team", "✨", [
-      agent("Mae", "Product Lead", "You write specs and prioritise the roadmap.", 3, true),
-      agent("Ezra", "UX Designer", "You design flows and critique UI.", 0),
-      agent("Pia", "UX Writer", "You write microcopy.", 1),
-    ]),
-    emptyRoom("Ops & Admin team", "🚧", [
-      agent("Oli", "Ops Lead", "You run operations, vendors and processes.", 4, true),
-      agent("Bea", "Admin", "You handle scheduling, docs and inboxes.", 2),
-      agent("Tom", "Finance", "You track budgets and invoices.", 5),
-    ]),
-    emptyRoom(
-      "Claude Code crew",
-      "🧑‍💻",
-      [
-        agent("Claude", "Main thread · Orchestrator", "You coordinate the work and delegate to subagents.", 4, true),
-        agent("Explore", "Built-in · Codebase search", "", 1, false, "builtin", "Explore"),
-        agent("Plan", "Built-in · Architect", "", 3, false, "builtin", "Plan"),
-        agent("Rex", "Code Reviewer", "You review code changes for bugs, security issues and readability. Be specific and cite file:line.", 2, false, "office", "reviewer"),
-      ],
-      "claude-code",
-    ),
+    emptyRoom("Arklyn Workspace", "🏡", [hermes]),
+    emptyRoom("Claude Code crew", "🧑‍💻", [
+      agent("Claude Code", "Main thread · Orchestrator", "You coordinate the work and delegate to subagents.", 4, true),
+      agent("Explore", "Built-in · Codebase search", "", 1, false, "builtin", "Explore"),
+      agent("Plan", "Built-in · Architect", "", 3, false, "builtin", "Plan"),
+      agent("Rex", "Code Reviewer", "You review code changes for bugs, security issues and readability. Be specific and cite file:line.", 2, false, "office", "reviewer"),
+    ], "claude-code"),
   ];
-  rooms[3].unread = true;
-  rooms[4].unread = true;
-
   return {
-    rooms,
-    activeRoomId: marketing.id,
-    view: "room",
-    selectedAgentId: ara.id,
-    targetAgentId: ara.id,
-    rightTab: "inspector",
-    schedules: [],
-    theme: "cream",
-    roomsCollapsed: false,
-    panelCollapsed: false,
-    focusOutputId: null,
-    fx: [],
+    rooms, activeRoomId: rooms[0].id, view: "room", selectedAgentId: hermes.id, targetAgentId: hermes.id,
+    rightTab: "inspector", schedules: [], theme: "cream", roomsCollapsed: false,
+    panelCollapsed: false, focusOutputId: null, fx: [],
   };
 }

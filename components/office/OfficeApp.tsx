@@ -2,8 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { actions, activeRoom, getState, hydrate, sendMessage, setState, useOffice } from "@/lib/store";
+import { actions, activeRoom, getState, hydrate, sendMessage, setState, startIntegrationPolling, useOffice } from "@/lib/store";
 import { ChatBar } from "./ChatBar";
+import { ConnectionStatus } from "./ConnectionStatus";
 import { ArrowLeft, Calendar, Logo, Office, Palette, Sliders } from "./icons";
 import { SettingsModal, TeamEditor, ThemeModal, useBackends } from "./Modals";
 import { MobileSheet, RightPanel } from "./RightPanel";
@@ -38,6 +39,9 @@ function useTicker() {
       const now = Date.now();
       for (const x of getState().schedules) {
         if (!x.enabled || x.nextRunAt > now) continue;
+        const room = getState().rooms.find((r) => r.id === x.roomId);
+        // Connected topics use existing server schedules, never browser injection.
+        if (!room || room.telegram || room.agents.some((a) => a.status === "working")) continue;
         setState((s) => ({
           ...s,
           schedules: s.schedules.map((y) => (y.id === x.id ? { ...y, nextRunAt: now + y.everyMinutes * 60000 } : y)),
@@ -91,11 +95,16 @@ export default function OfficeApp() {
     // smaller screens: fold the side panels so the office gets the space
     if (window.innerWidth < 1440) actions.set("roomsCollapsed", true);
     if (window.innerWidth < 1280) actions.set("panelCollapsed", true);
+    return startIntegrationPolling();
   }, []);
   useTicker();
 
   const cc = room.backend === "claude-code";
-  const badge = cc
+  const bot = s.integrations?.bots.find((b) => b.backend === room.backend);
+  const badge = room.telegram
+    ? { ok: s.integrations?.phase === "synced" && !!bot?.ok,
+        label: cc ? "Claude Code · Telegram" : "Hermes · Telegram", hint: room.telegram.model ?? `Topic ${room.telegram.topicId}` }
+    : cc
     ? claudeCode?.enabled
       ? { ok: true, label: "claude code", hint: claudeCode.cwd ?? "" }
       : { ok: false, label: claudeCode ? "disabled" : "…", hint: "CLAUDE_CODE_ENABLED=false" }
@@ -118,16 +127,24 @@ export default function OfficeApp() {
         ? `${s.rooms.length} teams · ${s.rooms.reduce((n, r) => n + r.agents.length, 0)} agents`
         : `${s.schedules.length} schedules`;
   const editRoom = s.rooms.find((r) => r.id === editRoomId);
+  const scheduleState = { ...s, rooms: s.rooms.filter((r) => !r.telegram),
+    schedules: s.schedules.filter((x) => s.rooms.some((r) => r.id === x.roomId && !r.telegram)) };
+  const chat = (compact = false) => (
+    <fieldset disabled={room.telegram?.delivery === "posting"} className={`min-w-0 border-0 p-0 ${compact ? "w-full" : "w-full max-w-[640px]"} ${room.telegram ? "[&_button[aria-label=Stop]]:hidden" : ""}`}>
+      <ChatBar s={s} room={room} compact={compact} />
+    </fieldset>
+  );
 
   const modals = (
     <>
       {modal === "new" && <TeamEditor onClose={() => setModal(null)} />}
-      {modal === "team" && editRoom && <TeamEditor key={editRoom.id} room={editRoom} onClose={() => setModal(null)} />}
+      {modal === "team" && editRoom && !editRoom.telegram && <TeamEditor key={editRoom.id} room={editRoom} onClose={() => setModal(null)} />}
       {modal === "settings" && <SettingsModal health={health} claudeCode={claudeCode} onClose={() => setModal(null)} />}
       {modal === "theme" && <ThemeModal s={s} onClose={() => setModal(null)} />}
     </>
   );
   const openTeam = () => {
+    if (room.telegram) return;
     setEditRoomId(room.id);
     setModal("team");
   };
@@ -161,17 +178,19 @@ export default function OfficeApp() {
           </button>
         </header>
 
+        <ConnectionStatus status={s.integrations} room={room} compact />
+
         {/* office + bottom sheet */}
         <main className="relative min-h-0 flex-1">
           {s.view === "room" && <OfficeScene room={room} selectedId={s.selectedAgentId} theme={s.theme} fx={s.fx} compact padBottom={landscape ? 12 : 70} padRight={landscape ? 56 : 0} />}
           {s.view === "lounge" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><LoungeView s={s} /></div>}
-          {s.view === "schedule" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><ScheduleView s={s} /></div>}
+          {s.view === "schedule" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><ScheduleView s={scheduleState} /></div>}
           {s.view === "room" && (
             <div className={`absolute top-2 z-20 flex gap-2 ${landscape ? "left-3 flex-col" : "right-3 flex-col"}`}>
               <button onClick={() => actions.set("view", "lounge")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Lounge">
                 <ArrowLeft />
               </button>
-              <button onClick={openTeam} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 text-[17px] shadow-sm backdrop-blur" aria-label="Manage team">
+              <button onClick={openTeam} disabled={!!room.telegram} title={room.telegram ? "Connected teams are managed in Telegram" : "Manage team"} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 text-[17px] shadow-sm backdrop-blur disabled:opacity-40" aria-label="Manage team">
                 👥
               </button>
               <button onClick={() => actions.set("view", "schedule")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Schedule">
@@ -187,7 +206,7 @@ export default function OfficeApp() {
 
         {/* chat */}
         <div className={`z-30 shrink-0 bg-[#f4f4f2]/95 px-3 backdrop-blur ${landscape ? "pb-1.5 pt-1" : "pb-[max(10px,env(safe-area-inset-bottom))] pt-2"}`}>
-          <ChatBar s={s} room={room} compact />
+          {chat(true)}
         </div>
 
         {/* rooms drawer */}
@@ -253,10 +272,11 @@ export default function OfficeApp() {
             </div>
           </header>
 
+          <ConnectionStatus status={s.integrations} room={room} />
           <div className="relative min-h-0 flex-1">
             {s.view === "room" && <OfficeScene room={room} selectedId={s.selectedAgentId} theme={s.theme} fx={s.fx} />}
             {s.view === "lounge" && <div className="h-full pt-6"><LoungeView s={s} /></div>}
-            {s.view === "schedule" && <div className="h-full pt-6"><ScheduleView s={s} /></div>}
+            {s.view === "schedule" && <div className="h-full pt-6"><ScheduleView s={scheduleState} /></div>}
 
             {s.view === "room" && (
               <>
@@ -266,7 +286,9 @@ export default function OfficeApp() {
                 <div className="absolute bottom-4 right-6 flex items-center gap-2">
                   <button
                     onClick={openTeam}
-                    className="rounded-full border border-[#d9dbe0] bg-white/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-white"
+                    disabled={!!room.telegram}
+                    title={room.telegram ? "Connected teams are managed in Telegram" : "Manage team"}
+                    className="rounded-full border border-[#d9dbe0] bg-white/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-white disabled:opacity-40"
                   >
                     Manage team
                   </button>
@@ -278,7 +300,7 @@ export default function OfficeApp() {
             )}
           </div>
 
-          <div className="flex justify-center pb-6 pt-4">{s.view === "room" && <ChatBar s={s} room={room} />}</div>
+          <div className="flex justify-center pb-6 pt-4">{s.view === "room" && chat()}</div>
         </main>
 
         <RightPanel s={s} room={room} />

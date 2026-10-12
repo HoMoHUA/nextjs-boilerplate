@@ -1,0 +1,23 @@
+[Unit]
+Description=Arklyn Office web application
+After=network-online.target arklyn-office-bridge.service arklyn-office-hermes-api.service
+Wants=network-online.target
+[Service]
+Type=simple
+User=arklyn-office
+Group=arklyn-office
+WorkingDirectory=/opt/arklyn-office
+EnvironmentFile=/etc/arklyn-office/web.env
+Environment=HOME=/var/lib/arklyn-office
+ExecStart=/usr/bin/node /opt/arklyn-office/.next/standalone/server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+MemoryMax=650M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/arklyn-office /opt/arklyn-office/.next/cache
+[Install]
+WantedBy=multi-user.target

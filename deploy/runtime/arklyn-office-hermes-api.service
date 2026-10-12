@@ -1,0 +1,18 @@
+[Unit]
+Description=Arklyn Office API-only adapter for active Hermes installation
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/lib/arklyn-office/workspace
+EnvironmentFile=/etc/arklyn-office/backend.env
+Environment=PYTHONPATH=/usr/local/lib/hermes-agent
+ExecStart=/usr/local/lib/hermes-agent/venv/bin/python /opt/arklyn-office/integrations/hermes_api.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+MemoryMax=1200M
+NoNewPrivileges=true
+[Install]
+WantedBy=multi-user.target

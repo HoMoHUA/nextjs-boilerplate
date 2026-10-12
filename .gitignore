@@ -41,3 +41,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Private integration runtime / local QA evidence
+__pycache__/
+*.session*
+integrations/qa-*.png
+integrations/*verification.json
+integrations/credential-delivery.json
