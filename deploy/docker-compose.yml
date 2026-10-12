@@ -1,0 +1,44 @@
+# Arklyn Office + Caddy (automatic HTTPS) on one Linux host.
+# Both containers use the host network so the app can reach hermes-agent's API
+# server on 127.0.0.1:8642 and Caddy can reach the app on 127.0.0.1:${APP_PORT}.
+#
+#   cd deploy && cp .env.production.example .env.production   # fill it in
+#   docker compose up -d --build
+name: arklyn-office
+
+services:
+  app:
+    build:
+      context: ..
+      args:
+        WITH_CLAUDE_CODE: ${WITH_CLAUDE_CODE:-false}
+    image: arklyn-office:latest
+    env_file: .env.production
+    environment:
+      PORT: ${APP_PORT:-3000}
+      HOSTNAME: 127.0.0.1
+    network_mode: host
+    restart: unless-stopped
+    # Claude Code backend only (WITH_CLAUDE_CODE=true): mount the project it works in and its login
+    # volumes:
+    #   - /srv/your-repo:/srv/your-repo
+    #   - /home/office/.claude:/home/office/.claude
+
+  caddy:
+    image: caddy:2
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      APP_PORT: ${APP_PORT:-3000}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:
