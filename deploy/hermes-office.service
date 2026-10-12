@@ -1,0 +1,23 @@
+# Bare-metal alternative to Docker: run the standalone server under systemd.
+# Installed by deploy/setup.sh --mode bare to /etc/systemd/system/hermes-office.service
+[Unit]
+Description=Hermes Office (Next.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=office
+Group=office
+WorkingDirectory=/opt/hermes-office/.next/standalone
+EnvironmentFile=/opt/hermes-office/deploy/.env.production
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/env bash -c 'PORT=${APP_PORT:-3000} exec node server.js'
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

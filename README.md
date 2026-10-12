@@ -9,6 +9,23 @@ Two backends, chosen per room:
 | **hermes-agent** | Your [hermes-agent](https://github.com/NousResearch/hermes-agent) through its OpenAI-compatible API server | The lead hands tasks to teammates with `[[DELEGATE: …]]` markers |
 | **Claude Code** | Claude Code through the [Agent SDK](https://code.claude.com/docs/en/agent-sdk) | Native **subagents**: the lead is the main thread, teammates are subagents it calls with the Agent tool |
 
+## Documents
+
+| File | For |
+| --- | --- |
+| [`docs/HANDOFF.md`](docs/HANDOFF.md) | Production runbook (written so the hermes agent can execute it): server checks, DNS, hermes API server, deploy, verify, operations |
+| [`docs/TELEGRAM_PROMPT.md`](docs/TELEGRAM_PROMPT.md) | Ready-to-send message for the hermes Telegram bot (Persian + English) |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | Architecture, data model, design tokens, 3D scene system and step-by-step recipes for adding elements |
+
+## Production in short
+
+```bash
+sudo deploy/setup.sh --domain office.example.com --email you@example.com --hermes-key <API_SERVER_KEY>
+sudo deploy/verify.sh --domain office.example.com --password '<password>'
+```
+
+Docker + Caddy (automatic HTTPS), password login, health check at `/api/health`. Details in `docs/HANDOFF.md`.
+
 ## Quick start
 
 ```bash

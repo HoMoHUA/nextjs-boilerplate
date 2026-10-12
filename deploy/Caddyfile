@@ -1,0 +1,26 @@
+# HTTPS reverse proxy for Hermes Office. Caddy gets and renews the certificate
+# for {$DOMAIN} automatically (DNS A/AAAA record must point at this server,
+# ports 80 and 443 open).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:{$APP_PORT:3000} {
+		# agents stream their replies (server-sent events): never buffer
+		flush_interval -1
+		transport http {
+			read_timeout 15m
+		}
+	}
+}

@@ -287,6 +287,9 @@ export function SettingsModal({ health, claudeCode, onClose }: { health: Health 
           <code>CLAUDE_CODE_PERMISSION_MODE</code> (default <code>acceptEdits</code>).
         </li>
       </ol>
+      <form action="/api/logout" method="post" className="mt-6 inline-block">
+        <button className="mr-2 rounded-full border border-[#e3e5ea] px-4 py-2 text-[13px] text-[#3a3d47] hover:bg-[#f4f5f8]">Sign out</button>
+      </form>
       <button
         onClick={() => {
           if (confirm("Reset all rooms, messages and outputs?")) {
@@ -294,7 +297,7 @@ export function SettingsModal({ health, claudeCode, onClose }: { health: Health 
             onClose();
           }
         }}
-        className="mt-6 rounded-full border border-[#f2c4c4] px-4 py-2 text-[13px] text-[#e04848]"
+        className="rounded-full border border-[#f2c4c4] px-4 py-2 text-[13px] text-[#e04848]"
       >
         Reset office data
       </button>

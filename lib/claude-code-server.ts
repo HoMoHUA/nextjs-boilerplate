@@ -5,8 +5,11 @@ import path from "node:path";
 /** Server-side Claude Code (Agent SDK) settings, read from env. */
 export function claudeCodeConfig() {
   return {
-    // needs the Claude Code CLI on the machine running this app, so it is off on serverless hosts like Vercel
-    enabled: process.env.CLAUDE_CODE_ENABLED ? process.env.CLAUDE_CODE_ENABLED !== "false" : !process.env.VERCEL,
+    // Claude Code runs tools (files, shell) on this machine: on by default only in local development;
+    // production and serverless hosts must opt in with CLAUDE_CODE_ENABLED=true
+    enabled: process.env.CLAUDE_CODE_ENABLED
+      ? process.env.CLAUDE_CODE_ENABLED === "true"
+      : !process.env.VERCEL && process.env.NODE_ENV !== "production",
     cwd: process.env.CLAUDE_CODE_CWD || process.cwd(),
     model: process.env.CLAUDE_CODE_MODEL || undefined,
     permissionMode: (process.env.CLAUDE_CODE_PERMISSION_MODE || "acceptEdits") as
