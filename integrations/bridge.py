@@ -283,6 +283,7 @@ class Broker:
         self.bot_ids = {}
         self._telegram_cache = {}
         self._telegram_slots = asyncio.Semaphore(1)
+        self._telegram_reconnect_lock = asyncio.Lock()
         self.tokens = {}
         self._forum_at = -float('inf')
         self._snapshot_at = -float('inf')
@@ -299,6 +300,33 @@ class Broker:
     def check_group(self):
         if self.group is None or self.group.id != 4374108988:
             raise BridgeError('Approved group unavailable', 503)
+
+    async def ensure_telegram_connection(self):
+        """Reconnect the retained Telethon client after a transport drop.
+
+        A healthy systemd process can retain a disconnected client indefinitely;
+        never turn that transient state into a repeated 503 until manual restart.
+        """
+        if self.client is None:
+            raise BridgeError('Telegram client unavailable', 503)
+        if self.client.is_connected():
+            return
+        async with self._telegram_reconnect_lock:
+            if self.client.is_connected():
+                return
+            try:
+                await self.client.connect()
+                if not await self.client.is_user_authorized():
+                    raise BridgeError('Telegram session unauthorized; no interactive login attempted', 503)
+            except BridgeError:
+                raise
+            except Exception:
+                raise BridgeError('Telegram reconnection failed', 503) from None
+            # Existing Telethon event handlers survive reconnect. Drop only stale
+            # derived data so the next forum refresh is read from Telegram again.
+            self._telegram_cache.clear()
+            self.history_pages.clear()
+            self._snapshot_at = -float('inf')
 
     async def start(self):
         global _KNOWN_SECRETS
@@ -378,6 +406,7 @@ class Broker:
 
     async def refresh_forum(self):
         async with self._forum_lock:
+            await self.ensure_telegram_connection()
             if time.monotonic() - self._forum_at < FORUM_TTL:
                 return
             self.check_group()

@@ -6,7 +6,7 @@ import sqlite3
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 import bridge
 
 
@@ -108,6 +108,28 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
                        {'backend': 'claude-code', 'username': 'claudebot', 'ok': False}]
         broker.refresh_forum = AsyncMock()
         return broker
+
+    async def test_reconnects_after_telegram_transport_drop(self):
+        b = self.make_broker()
+        b.client = SimpleNamespace(is_connected=Mock(return_value=False),
+                                   connect=AsyncMock(), is_user_authorized=AsyncMock(return_value=True))
+        b._telegram_cache = {'group-history': (0, [])}
+        b.history_pages = {('11', None): (0, {})}
+        b._snapshot_at = 123
+        await b.ensure_telegram_connection()
+        b.client.connect.assert_awaited_once_with()
+        b.client.is_user_authorized.assert_awaited_once_with()
+        self.assertEqual(b._telegram_cache, {})
+        self.assertEqual(b.history_pages, {})
+        self.assertEqual(b._snapshot_at, -float('inf'))
+
+    async def test_reconnect_reports_unauthorized_session_without_interactive_login(self):
+        b = self.make_broker()
+        b.client = SimpleNamespace(is_connected=Mock(return_value=False),
+                                   connect=AsyncMock(), is_user_authorized=AsyncMock(return_value=False))
+        with self.assertRaisesRegex(bridge.BridgeError, 'unauthorized'):
+            await b.ensure_telegram_connection()
+        b.client.connect.assert_awaited_once_with()
 
     async def test_send_only_known_room_and_approved_group(self):
         b = self.make_broker()
