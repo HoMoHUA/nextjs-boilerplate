@@ -1,0 +1,39 @@
+{
+  "fixture": "Isolated browser-only visual fixture, no real messages or credentials",
+  "checks": [
+    "Six articulated characters and local GLB/material assets rendered",
+    "Character label selects its existing agent identity",
+    "Existing team editor still opens with all six people",
+    "Mobile scene, composer and room drawer fit and work at 390\u00d7844",
+    "Selection and existing office state survive reload"
+  ],
+  "page_errors": [],
+  "console_errors": [],
+  "failed_assets": [],
+  "loaded_assets": [
+    "models/studio/characters.glb",
+    "models/studio/furniture-chair.glb",
+    "models/studio/furniture-espresso.glb",
+    "models/studio/furniture-executive-chair.glb",
+    "models/studio/furniture-lounge.glb",
+    "models/studio/furniture-mug.glb",
+    "models/studio/furniture-plant.glb",
+    "textures/studio/fabric.jpg",
+    "textures/studio/garden.jpg",
+    "textures/studio/oak.jpg",
+    "textures/studio/plaster.jpg"
+  ],
+  "desktop": [
+    1600,
+    1000
+  ],
+  "mobile": [
+    390,
+    844
+  ],
+  "codeCommit": "cbc616512c96d580464a6d37bc7886132f346799",
+  "command": "python integrations/qa_studio.py --base-url <local standalone server> --output <artifact directory>",
+  "browser": "Chromium 154.0.8037.57 built on Debian GNU/Linux 13 (trixie)",
+  "rendering": "Headless Chromium using SwiftShader, deviceScaleFactor=1; functional QA, not real-phone FPS",
+  "validationDateUTC": "2026-10-19"
+}

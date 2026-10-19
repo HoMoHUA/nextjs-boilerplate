@@ -73,3 +73,5 @@
 - Ruling: If a first migration would exceed 512 records, keep the entire legacy fallback, without a partial migration. Save/Reset reject uninitialized settings. P4 must explain this limit rather than silently rehash other topics.
 - Ruling: JSON input cap is 1 MiB rather than the initial 256 KiB proposal; a valid 512-record preference set must be able to round-trip through the parser. Record count and closed fields remain bounded.
 - Review: independent read-only reviewer found migration overflow and repeated validation per actor. Both received regression coverage; validation now occurs once per scene projection. No real-device performance or final visual acceptance was inferred from this review.
+
+- Completed checkpoints: `55da5d3` (audit/P0 census) and `cbc6165` (P1 domain/store/tests). Final functional browser QA: 5 groups passed, zero page/console/asset errors; evidence in `docs/benchmarks/avatar-foundation-browser.json`. The separate Python suite remains 24/25 with the documented existing filesystem-permission error.
