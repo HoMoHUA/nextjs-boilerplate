@@ -36,6 +36,6 @@ node integrations/run_topic_tests.cjs ../lib/avatar/status.test.ts
 
 در سرور آزمایشی با password فعال، manifest/worker/icons پاسخ 200، صفحهٔ دفتر redirect به login و API خصوصی پاسخ 401 داشتند. پیام واقعی، عملیات Telegram یا فراخوانی مدل در آزمون انجام نشد. نتیجهٔ نرم‌افزاری مرورگر به عنوان FPS گوشی گزارش نمی‌شود.
 
-بازبینی مستقل سه مورد یافت که اصلاح شدند: refresh محدود برای SSE بدون تغییر محتوا، جلوگیری از تایپ بر اساس timestamp حدسی worker، و اعمال Reduced motion در Lounge/Schedule بدون نیاز به mount صحنه. تست‌های مربوط قبل از اصلاح شکست خوردند و پس از اصلاح عبور کردند؛ سناریوی مرورگرِ Lounge نیز عبور کرد.
+بازبینی مستقل سه مورد یافت که اصلاح شدند: refresh محدود برای SSE بدون تغییر محتوا، جلوگیری از تایپ بر اساس timestamp حدسی worker، و اعمال Reduced motion در Lounge/Schedule بدون نیاز به mount صحنه. تست‌های status و refresh قبل از اصلاح شکست خوردند و پس از اصلاح عبور کردند؛ سناریوی مرورگرِ Lounge پس از اصلاح نیز عبور کرد.
 
 [گزارش ماشینی](benchmarks/dark-webapp-validation.json) · [نمای دارک دسکتاپ](screenshots/studio-dark-desktop.png) · [نمای دارک موبایل](screenshots/studio-dark-mobile.png). تصاویر از fixture محلی شش‌نفره‌اند و اطلاعات دفتر زنده را نشان نمی‌دهند.
