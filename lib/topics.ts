@@ -1,5 +1,5 @@
 import type { Agent, IntegrationSnapshot, OfficeState, Room } from "./types";
-import { lookFor } from "./seed";
+import { createTopicLookResolver } from "./avatar/storage";
 
 export const TOPICS_PER_PAGE = 12;
 export const topicVisible = (s:OfficeState, id:string) => s.visibleTopicIds === undefined || s.visibleTopicIds.includes(id);
@@ -7,11 +7,12 @@ export const visibleRooms = (s:OfficeState):Room[] => s.rooms.filter(r=>!r.teleg
 export const visibleTopics = (s:OfficeState):Room[] => visibleRooms(s).filter(r=>!!r.telegram).sort((a,b)=>Number(a.telegram!.topicId)-Number(b.telegram!.topicId));
 export const topicAvatarId = (roomId:string) => `topic-avatar:${roomId}`;
 export function topicActors(s:OfficeState):Agent[] {
+  const resolveLook = createTopicLookResolver(s.avatarPreferences);
   return visibleTopics(s).map(room=>{
     const working=room.telegram!.busy || room.agents.some(a=>a.status=== "working");
     return {id:topicAvatarId(room.id),topicRoomId:room.id,name:room.name,title:"Telegram topic",persona:"",isLead:false,
       status:working?"working":room.agents.some(a=>a.status==="needs_you")?"needs_you":"idle",
-      look:lookFor("topic:"+room.telegram!.topicId),runtime:true,
+      look:resolveLook(room.telegram!.groupId,room.telegram!.topicId),runtime:true,
       activity:working?room.agents.find(a=>a.status==="working")?.activity || "Topic is processing":undefined};
   });
 }

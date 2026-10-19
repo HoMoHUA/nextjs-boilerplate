@@ -201,4 +201,6 @@ export interface OfficeState {
   integrations?: IntegrationStatus;
   /** Undefined = all topics; an empty array deliberately hides all. Browser-local preference. */
   visibleTopicIds?: string[];
+  /** Untrusted, versioned browser-local JSON. Unknown versions stay intact for recovery. */
+  avatarPreferences?: unknown;
 }

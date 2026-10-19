@@ -14,6 +14,7 @@ import {
 } from "./protocol";
 import { lookFor, seedState, uid } from "./seed";
 import { canonicalTopics, topicVisible } from "./topics";
+import { initializeAvatarPreferences } from "./avatar/storage";
 import type { Agent, AgentStatus, Fx, IntegrationSnapshot, OfficeState, Room, Step } from "./types";
 
 const STORAGE_KEY = "arklyn-office-v3";
@@ -72,6 +73,7 @@ export function hydrate() {
         setState(() => ({
           ...seedState(),
           ...saved,
+          avatarPreferences: initializeAvatarPreferences(saved.avatarPreferences, saved.rooms.flatMap(r => r.telegram ? [r.telegram] : []), true),
           fx: [],
           visibleTopicIds:Array.isArray(saved.visibleTopicIds) ? [...new Set(saved.visibleTopicIds.filter(id=>typeof id==="string"))] : undefined,
           integrations: { phase: "connecting", bots: [] },
@@ -160,10 +162,11 @@ function connectedRoom(snapshot: IntegrationSnapshot, source: IntegrationSnapsho
 export function mergeIntegrations(snapshot: IntegrationSnapshot) {
   if (snapshot.updatedAt < (getState().integrations?.updatedAt ?? 0)) return;
   setState(s => {
+    const avatarPreferences = initializeAvatarPreferences(s.avatarPreferences, s.rooms.flatMap(r => r.telegram ? [r.telegram] : []), true);
     const connected=canonicalTopics(snapshot.rooms).map(r=>connectedRoom(snapshot,r,s.rooms.find(old=>old.id === r.id) ?? s.rooms.find(old=>old.telegram?.topicId === r.topicId)));
     connected.sort((a,b)=>(b.lastMessageAt ?? 0)-(a.lastMessageAt ?? 0) || Number(b.lastMessageId ?? 0)-Number(a.lastMessageId ?? 0) || a.id.localeCompare(b.id));
     const rooms=[...connected,...s.rooms.filter(r=>!r.telegram)];
-    if (!rooms.length) return {...s,integrations:{phase:"synced",group:snapshot.group,bots:snapshot.bots,updatedAt:snapshot.updatedAt}};
+    if (!rooms.length) return {...s,avatarPreferences,integrations:{phase:"synced",group:snapshot.group,bots:snapshot.bots,updatedAt:snapshot.updatedAt}};
     const previousActive=s.rooms.find(r=>r.id===s.activeRoomId);
     const visible=connected.filter(r=>topicVisible(s,r.telegram!.topicId));
     const migrated=previousActive?.telegram ? visible.find(r=>r.telegram?.topicId===previousActive.telegram?.topicId) : undefined;
@@ -173,7 +176,7 @@ export function mergeIntegrations(snapshot: IntegrationSnapshot) {
     const validSelected=active.agents.some(a=>a.id===s.selectedAgentId);
     const validTarget=active.agents.some(a=>a.id===s.targetAgentId && a.backend && a.kind==="bot");
     const preferred=active.agents.find(a=>a.backend===previousActive?.backend && a.kind==="bot") ?? leadOf(active);
-    return {...s,rooms,activeRoomId:active.id,selectedAgentId:validSelected?s.selectedAgentId:preferred?.id ?? null,
+    return {...s,avatarPreferences,rooms,activeRoomId:active.id,selectedAgentId:validSelected?s.selectedAgentId:preferred?.id ?? null,
       targetAgentId:validTarget?s.targetAgentId:preferred?.id ?? null,
       rightTab:active.telegram && (initial || active.id!==s.activeRoomId) ? "thread" : s.rightTab,
       integrations:{phase:"synced",group:snapshot.group,bots:snapshot.bots,updatedAt:snapshot.updatedAt}};
