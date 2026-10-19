@@ -1,0 +1,67 @@
+{
+  "checks": [
+    "Saved Dark overrides light OS; actual studio models render with night profile",
+    "Light/Dark/System overrides, system change, reduced-motion override, keyboard Escape/focus and core text contrast",
+    "390\u00d7844 dark layout/composer/settings; theme dialog fits and traps keyboard focus",
+    "Valid manifest/icons, active root service worker and empty Cache Storage",
+    "Offline disables sending without clearing draft; navigation fallback/retry preserve Dark and Reduced motion on a saved Lounge view"
+  ],
+  "page_errors": [],
+  "online_console_errors": [],
+  "core_text_contrast": {
+    "dark": {
+      "ink/surface": 12.47,
+      "ink/inset": 13.77,
+      "ink/canvas": 15.32,
+      "muted/surface": 6.67,
+      "muted/inset": 7.37,
+      "muted/canvas": 8.19
+    },
+    "light": {
+      "ink/surface": 16.45,
+      "ink/inset": 15.09,
+      "ink/canvas": 14.92,
+      "muted/surface": 5.29,
+      "muted/inset": 4.85,
+      "muted/canvas": 4.8
+    }
+  },
+  "browser": "154.0.8037.57",
+  "rendering": "Headless SwiftShader; functional QA, not physical-device FPS",
+  "viewport": {
+    "desktop": [
+      1600,
+      1000
+    ],
+    "mobile": [
+      390,
+      844
+    ]
+  },
+  "codeCommit": "3a588aaddf795e1b4489441edd4a1e7f4c2acfb2",
+  "validatedAt": "2026-10-20T02:33:10.264793+03:30",
+  "authBoundary": {
+    "fixture": "Local isolated password-enabled server, no real credentials",
+    "checks": {
+      "/manifest.webmanifest": 200,
+      "/sw.js": 200,
+      "/icons/app-192.png": 200,
+      "/icons/app-512.png": 200,
+      "/icons/apple-touch-icon.png": 200,
+      "/": 307,
+      "/api/integrations": 401
+    }
+  },
+  "frontendChecks": {
+    "suites": 10,
+    "result": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "remainingGates": [
+    "Real Android/iOS installation and GPU budgets",
+    "Avatar P2-P4/P6-P7 acceptance",
+    "Espresso interaction, collision-aware locomotion, shared-object reservations and real planning-meeting events"
+  ]
+}

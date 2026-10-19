@@ -29,3 +29,13 @@ node integrations/run_topic_tests.cjs ../lib/avatar/status.test.ts
 ```
 
 آزمون browser باید انتخاب Dark از UI، reload، System و تغییر تنظیم سیستم، override، رنگ واقعی پنل و صحنه، keyboard/focus، viewport موبایل، نصب‌پذیری manifest/worker و offline بدون ارسال را بررسی کند. هیچ پیام واقعی برای این QA ارسال نمی‌شود. آزمون نصب iOS/Android واقعی و عملکرد GPU آن‌ها همچنان gate دستگاه واقعی است.
+
+## نتیجهٔ اعتبارسنجی این مرحله
+
+کد checkpoint `3a588aa` با lint، build و typecheck و ده مجموعهٔ تست فرانت‌اند عبور کرد. آزمون production browser در Chromium 154 با SwiftShader در 1600×1000 و 390×844، Light/Dark/System، تغییر OS و override، Reduced motion، کیبورد/focus، manifest/PNGها، worker فعال و Cache Storage خالی، قطع اتصال بدون ارسال و حفظ تنظیم در بازگشت مستقیم به Lounge را گذراند. page error و console error در فاز آنلاین صفر بودند. کنتراست roleهای متن اصلی/ثانویه با surface/inset/canvas حداقل 4.8 در روشن و 6.67 در تیره بود؛ این عدد، گواهی ممیزی کامل WCAG تمام وضعیت‌ها نیست.
+
+در سرور آزمایشی با password فعال، manifest/worker/icons پاسخ 200، صفحهٔ دفتر redirect به login و API خصوصی پاسخ 401 داشتند. پیام واقعی، عملیات Telegram یا فراخوانی مدل در آزمون انجام نشد. نتیجهٔ نرم‌افزاری مرورگر به عنوان FPS گوشی گزارش نمی‌شود.
+
+بازبینی مستقل سه مورد یافت که اصلاح شدند: refresh محدود برای SSE بدون تغییر محتوا، جلوگیری از تایپ بر اساس timestamp حدسی worker، و اعمال Reduced motion در Lounge/Schedule بدون نیاز به mount صحنه. تست‌های مربوط قبل از اصلاح شکست خوردند و پس از اصلاح عبور کردند؛ سناریوی مرورگرِ Lounge نیز عبور کرد.
+
+[گزارش ماشینی](benchmarks/dark-webapp-validation.json) · [نمای دارک دسکتاپ](screenshots/studio-dark-desktop.png) · [نمای دارک موبایل](screenshots/studio-dark-mobile.png). تصاویر از fixture محلی شش‌نفره‌اند و اطلاعات دفتر زنده را نشان نمی‌دهند.
