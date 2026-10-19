@@ -1,17 +1,21 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, OrbitControls, OrthographicCamera } from "@react-three/drei";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Vector3, type Group } from "three";
+import { Environment, Lightformer, OrbitControls, OrthographicCamera, useProgress } from "@react-three/drei";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { ACESFilmicToneMapping, PCFShadowMap, Vector3, type Group } from "three";
 import { actions } from "@/lib/store";
 import type { Agent, Approval, Fx, Room, SceneTheme } from "@/lib/types";
 import { ApprovalCard } from "./ApprovalCard";
 import { Character, type Motion } from "./Character";
 import { Confetti, PaperFlight, StatusRing } from "./Effects";
-import { Armchair, Bookshelf, Cabinet, Floor, Mug, Plant, RoundTable, Rug, SideCabinet, Whiteboard } from "./Furniture";
+import { Armchair, Bookshelf, Cabinet, Mug, Plant, RoundTable, Rug, SideCabinet, Whiteboard } from "./Furniture";
 import { Anchor, Overlay, Projector } from "./Overlay";
 import { CoffeeStation, OfficeChair, Workstation } from "./Workstation";
+import { StudioEnvironment } from "./StudioEnvironment";
+import { StudioPostProcessing } from "./StudioPostProcessing";
+import { StudioJoinery } from "./StudioJoinery";
+import { StudioBoundary } from "./StudioBoundary";
 
 export const THEME_FLOOR: Record<SceneTheme, string> = {
   cream: "#f1e8dc",
@@ -53,7 +57,8 @@ const meetingSeat = (a: number): Spot => {
  * agent, then the meeting table for anyone beyond that. Everyone at a desk
  * faces +z, so the aisles behind the rows stay free for walking.
  */
-const ROW_A = -5.0;
+// Keep the rear walking aisle in front of the studio wall and its oak skirting.
+const ROW_A = -3.8;
 const ROW_B = 0.4;
 const DESKS: Spot[] = [
   { pos: [-4.6, 0, ROW_B], rot: 0, kind: "lead" },
@@ -121,6 +126,7 @@ function handoffTiming(route: XZ[]) {
 function FitToAgents({ spots, padTop, padBottom, padRight }: { spots: Spot[]; padTop: number; padBottom: number; padRight: number }) {
   const size = useThree((st) => st.size);
   const get = useThree((st) => st.get);
+  const controlState = useThree((st) => st.controls);
   const key = spots.map((sp) => sp.pos.join(",")).join("|");
   useEffect(() => {
     const { camera, controls } = get();
@@ -160,21 +166,43 @@ function FitToAgents({ spots, padTop, padBottom, padRight }: { spots: Spot[]; pa
       ctl.update();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size, get, key, padTop, padBottom, padRight]);
+  }, [size, get, controlState, key, padTop, padBottom, padRight]);
   return null;
 }
 
 function ResponsiveZoom() {
   const size = useThree((st) => st.size);
   const get = useThree((st) => st.get);
+  const controlState = useThree((st) => st.controls);
   useEffect(() => {
-    const { camera } = get();
-    const portrait = size.height > size.width * 1.05;
-    // portrait phones crop the empty floor corners so the agents stay readable
-    camera.zoom = portrait ? size.width / 12.5 : Math.min(size.width / 16.5, size.height / 12.5);
+    const { camera, controls } = get();
+    const target = new Vector3(0, 0.8, -0.15);
+    camera.position.copy(target).add(new Vector3(20, 17, 20));
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const x of [-7.9, 7.9]) for (const z of [-6.5, 6.3]) for (const y of [-0.45, 3.95]) {
+      const p = new Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse);
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    }
+    const right = new Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const up = new Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    target.add(right.multiplyScalar((minX + maxX) / 2)).add(up.multiplyScalar((minY + maxY) / 2));
+    camera.position.copy(target).add(new Vector3(20, 17, 20));
+    camera.lookAt(target);
+    camera.zoom = Math.min((size.width - 24) / (maxX - minX), (size.height - 60) / (maxY - minY));
     camera.updateProjectionMatrix();
-  }, [size, get]);
+    const ctl = controls as unknown as { target: Vector3; update: () => void } | null;
+    if (ctl) { ctl.target.copy(target); ctl.update(); }
+  }, [size, get, controlState]);
   return null;
+}
+
+function StudioLoader() {
+  const { active } = useProgress();
+  if (!active) return null;
+  return <div role="status" className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-[#f5f2eb]/85 text-[13px] text-[#5b6558]">Opening the studio…</div>;
 }
 
 function Label({ name, tag, active, compact, onClick, topicRoomId }: { name: string; tag: string; active: boolean; compact: boolean; onClick: () => void; topicRoomId?:string }) {
@@ -433,7 +461,11 @@ export default function OfficeScene({
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, alpha: true }} onPointerMissed={() => (document.body.style.cursor = "")}>
+      <StudioBoundary agents={ordered} selectedId={selectedId} onSelect={(agent) => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
+      <Canvas shadows dpr={[1, compact ? 1.25 : 1.5]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+        onCreated={({ gl }) => { gl.toneMapping = ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; gl.shadowMap.type = PCFShadowMap; }}
+        onPointerMissed={() => (document.body.style.cursor = "")}>
+        <Suspense fallback={null}>
         <OrthographicCamera makeDefault position={[20, 17, 20]} near={-50} far={200} zoom={50} />
         {compact || room.telegram ? <FitToAgents spots={ordered.map((_, i) => spotOf(i))} padTop={16} padBottom={padBottom} padRight={padRight} /> : <ResponsiveZoom />}
         <Projector />
@@ -452,35 +484,39 @@ export default function OfficeScene({
           maxAzimuthAngle={1.35}
         />
 
-        <hemisphereLight args={["#ffffff", "#e2d3bf", 0.9]} />
-        <ambientLight intensity={0.25} />
+        <Environment resolution={64} frames={1} environmentIntensity={0.45}>
+          <Lightformer form="rect" intensity={2} color="#fff5e6" scale={[12, 7, 1]} position={[2, 5, -5]} target={[0, 0, 0]} />
+          <Lightformer form="rect" intensity={0.7} color="#e4edff" scale={[10, 8, 1]} position={[0, 6, 8]} target={[0, 0, 0]} />
+        </Environment>
+        <hemisphereLight args={["#fff9ec", "#af9981", 0.6]} />
+        <ambientLight intensity={0.1} />
         <directionalLight
-          position={[6, 14, 8]}
-          intensity={2.1}
-          color="#fff8ef"
+          position={[4, 5.5, -10]}
+          intensity={3.4}
+          color="#fff0d6"
           castShadow
-          shadow-mapSize={[2048, 2048]}
+          shadow-mapSize={compact ? [1024, 1024] : [2048, 2048]}
           shadow-camera-left={-12}
           shadow-camera-right={12}
           shadow-camera-top={12}
           shadow-camera-bottom={-12}
-          shadow-bias={-0.0005}
-          shadow-radius={6}
+          shadow-bias={-0.0002}
+          shadow-normalBias={0.025}
+          shadow-radius={3}
         />
-        <directionalLight position={[-8, 6, -4]} intensity={0.35} color="#eef2ff" />
+        <directionalLight position={[8, 6, 10]} intensity={0.4} color="#e9f0ff" />
 
-        <Floor color={THEME_FLOOR[theme]} />
+        <StudioEnvironment theme={theme} />
+        <StudioJoinery />
         <Rug position={[TABLE[0], 0.012, TABLE[1]]} radius={2.25} color={THEME_RUG[theme]} />
-        <ContactShadows position={[0, 0.015, 0]} scale={18} opacity={0.35} blur={2.2} far={4} />
 
         {/* left wall zone: whiteboard and filing cabinet next to the lead */}
         <Whiteboard position={[-7.0, 0, -1.2]} rotation={Math.PI / 2} />
-        <Cabinet position={[-7.0, 0, -4.4]} rotation={Math.PI / 2} />
+        <Cabinet position={[-7.0, 0, -4.2]} rotation={Math.PI / 2} />
 
         {/* personal desks: one per agent, laid out in rows */}
         {DESKS.map((spot, i) => {
           const owner = deskOwner[i];
-          if (!owner) return null;
           return (
             <group key={i} position={spot.pos} rotation={[0, spot.rot, 0]} scale={S}>
               <Workstation seed={i + 1} color={owner?.look.shirt} lead={spot.kind === "lead"} active={owner?.status === "working"} />
@@ -501,17 +537,20 @@ export default function OfficeScene({
         })}
 
         {/* lounge and coffee */}
-        <CoffeeStation position={[6.6, 0, -5.2]} />
+        <CoffeeStation position={[6.1, 0, -5.25]} />
         <Bookshelf position={[3.8, 0, 5.0]} />
         <group position={[6.2, 0, 3.0]} scale={1.25}>
           <Armchair position={[0, 0, 0]} rotation={-2.4} />
         </group>
         <SideCabinet position={[6.8, 0, 0.9]} rotation={-Math.PI / 2} />
-        <Plant position={[-7.0, 0, -5.8]} scale={1.1} seed={1} />
         <Plant position={[7.0, 0, -2.6]} scale={1.0} seed={2} />
         <Plant position={[-7.0, 0, 5.6]} scale={1.0} seed={3} />
         <Plant position={[7.0, 0, 5.4]} scale={0.85} seed={4} />
         <Plant position={[0.6, 0, 5.2]} scale={0.75} seed={5} />
+        <Plant position={[-2.4, 1.15, -5.85]} scale={0.38} seed={6} />
+        <Plant position={[3.8, 1.15, -5.85]} scale={0.38} seed={7} />
+        <Plant position={[5.25, 1.11, 5.91]} scale={0.4} seed={8} />
+        <Plant position={[6.85, 1.11, 5.91]} scale={0.44} seed={9} />
 
         {/* agents */}
         {ordered.map((agent, i) => {
@@ -553,7 +592,10 @@ export default function OfficeScene({
           const p = spotOf(i).pos;
           return <Confetti key={f.id} at={[p[0], 2.8, p[2]]} ts={f.ts} />;
         })}
+        {!compact && <StudioPostProcessing />}
+        </Suspense>
       </Canvas>
+      <StudioLoader />
       <div className="pointer-events-none absolute inset-0">
         {ordered.map((agent) => (
           <AgentOverlays
@@ -568,6 +610,7 @@ export default function OfficeScene({
           />
         ))}
       </div>
+      </StudioBoundary>
     </div>
   );
 }
