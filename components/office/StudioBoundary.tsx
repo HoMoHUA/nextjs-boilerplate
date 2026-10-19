@@ -30,13 +30,13 @@ export class StudioBoundary extends Component<Props, { failed: boolean; attempt:
   render() {
     if (!this.state.failed) return <div key={this.state.attempt} className="contents">{this.props.children}</div>;
     return <div className="absolute inset-0 grid place-items-center overflow-y-auto p-6">
-      <div className="max-w-md rounded-2xl border border-[#dcded3] bg-[#faf9f5] p-6 text-center shadow-sm">
-        <p role="alert" className="text-[15px] font-semibold text-[#374437]">The studio could not be loaded.</p>
-        <p className="mt-2 text-[13px] leading-relaxed text-[#6a7165]">Your conversations are still available. Select a teammate here or try opening the studio again.</p>
+      <div className="max-w-md rounded-2xl border border-line bg-inset p-6 text-center shadow-sm">
+        <p role="alert" className="text-[15px] font-semibold text-ink">The studio could not be loaded.</p>
+        <p className="mt-2 text-[13px] leading-relaxed text-muted">Your conversations are still available. Select a teammate here or try opening the studio again.</p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           {this.props.agents.map((agent) => <button key={agent.id} onClick={() => this.props.onSelect(agent)}
             aria-pressed={this.props.selectedId === agent.id}
-            className="min-h-11 rounded-xl border border-[#d3d8ca] bg-white px-4 text-[13px] text-[#374437] aria-pressed:border-[#667b58] aria-pressed:bg-[#e9eee2]">
+            className="min-h-11 rounded-xl border border-line bg-surface px-4 text-[13px] text-ink aria-pressed:border-accent-line aria-pressed:bg-accent-soft">
             <span dir="auto">{agent.name}</span>
           </button>)}
         </div>

@@ -1,20 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { actions, resetOffice } from "@/lib/store";
 import { LOOK_PRESETS, lookFor, slug, uid } from "@/lib/seed";
 import type { Agent, Backend, HairStyle, OfficeState, Room, SceneTheme } from "@/lib/types";
 import { AgentAvatar } from "./AgentAvatar";
 import { X } from "./icons";
 import { THEME_FLOOR } from "./OfficeScene";
+import { normalizeColorMode, type ColorMode } from "@/lib/color-mode";
+import { WebAppSettings } from "./WebAppSupport";
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const dialog = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    dialog.current?.querySelector<HTMLElement>("button,input,select,textarea")?.focus();
+    return () => before?.focus();
+  }, []);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#16171d]/25 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-[640px] overflow-y-auto rounded-[22px] bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} dir="ltr" className="max-h-[90dvh] w-full max-w-[640px] overflow-y-auto rounded-[22px] bg-surface p-6 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={event => {
+        if (event.key === "Escape") onClose();
+        if (event.key !== "Tab") return;
+        const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]') ?? []).filter(node => node.offsetParent !== null);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }}>
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[18px] font-semibold text-[#1d1f26]">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-[#f4f5f8]" aria-label="Close">
+          <h2 id={titleId} className="text-[18px] font-semibold text-ink">{title}</h2>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-inset" aria-label="Close">
             <X />
           </button>
         </div>
@@ -24,7 +40,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-const input = "w-full rounded-lg border border-[#e3e5ea] px-3 py-2 text-[13.5px] outline-none focus:border-[#4f7cf5]";
+const input = "w-full rounded-lg border border-line px-3 py-2 text-[13.5px] outline-none focus:border-accent-line";
 const HAIR: HairStyle[] = ["short", "curly", "fluffy", "bun", "bob", "buzz"];
 const EMOJIS = ["📣", "🚀", "🧪", "✨", "🚧", "🧑‍💻", "💼", "📊", "🎨", "🛠️", "📚", "🧠", "🌱", "🤖", "🔬", "🎯"];
 
@@ -83,7 +99,7 @@ export function TeamEditor({ room, onClose }: { room?: Room; onClose: () => void
         <input value={name} onChange={(e) => setName(e.target.value)} className={input} placeholder="Room name" />
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-[#f4f5f8] p-1">
+      <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-inset p-1">
         {(
           [
             ["hermes", "hermes-agent", "OpenAI-compatible API server"],
@@ -93,40 +109,40 @@ export function TeamEditor({ room, onClose }: { room?: Room; onClose: () => void
           <button
             key={id}
             onClick={() => setBackend(id)}
-            className={`rounded-xl px-3 py-2 text-left transition ${backend === id ? "bg-white shadow-sm" : "text-[#6c707b] hover:bg-white/50"}`}
+            className={`rounded-xl px-3 py-2 text-left transition ${backend === id ? "bg-surface shadow-sm" : "text-muted hover:bg-surface/50"}`}
           >
             <div className="text-[13.5px] font-semibold">{label}</div>
-            <div className="text-[11px] text-[#8b8f99]">{hint}</div>
+            <div className="text-[11px] text-muted">{hint}</div>
           </button>
         ))}
       </div>
 
       {cc && (
-        <div className="mt-3 rounded-2xl border border-[#e6e9f3] bg-[#fafbff] p-3 text-[12px] text-[#4e525d]">
+        <div className="mt-3 rounded-2xl border border-line bg-inset p-3 text-[12px] text-muted">
           <div>
             The <b>lead</b> is Claude Code’s main thread; every other agent is a <b>subagent</b> it delegates to with the Agent tool. Subagents Claude Code
             uses on its own appear in the office automatically.
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-[#8b8f99]">Built-in:</span>
+            <span className="text-muted">Built-in:</span>
             {[
               ["Explore", "Built-in · Codebase search"],
               ["Plan", "Built-in · Architect"],
               ["general-purpose", "Built-in · Generalist"],
             ].map(([t, title]) => (
-              <button key={t} onClick={() => addSubagent(t, title, "builtin")} className="rounded-full border border-[#dfe3ef] bg-white px-2.5 py-0.5 hover:border-[#9fb4ee]">
+              <button key={t} onClick={() => addSubagent(t, title, "builtin")} className="rounded-full border border-line bg-surface px-2.5 py-0.5 hover:border-accent-line">
                 + {t}
               </button>
             ))}
-            <button onClick={loadFileAgents} className="rounded-full border border-dashed border-[#9fb4ee] bg-white px-2.5 py-0.5 hover:bg-[#eef3ff]">
+            <button onClick={loadFileAgents} className="rounded-full border border-dashed border-accent-line bg-surface px-2.5 py-0.5 hover:bg-accent-soft">
               Import from .claude/agents
             </button>
           </div>
           {fileAgents && (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {fileAgents.length === 0 && <span className="text-[#8b8f99]">No subagent files found in the project or ~/.claude/agents.</span>}
+              {fileAgents.length === 0 && <span className="text-muted">No subagent files found in the project or ~/.claude/agents.</span>}
               {fileAgents.map((f) => (
-                <button key={f.id} title={f.description} onClick={() => addSubagent(f.id, f.description.slice(0, 48) || "Subagent", "file")} className="rounded-full bg-[#16171d] px-2.5 py-0.5 text-white">
+                <button key={f.id} title={f.description} onClick={() => addSubagent(f.id, f.description.slice(0, 48) || "Subagent", "file")} className="rounded-full bg-action px-2.5 py-0.5 text-white">
                   + {f.id} <span className="opacity-60">({f.source})</span>
                 </button>
               ))}
@@ -137,7 +153,7 @@ export function TeamEditor({ room, onClose }: { room?: Room; onClose: () => void
 
       <div className="mt-6 flex flex-col gap-4">
         {agents.map((a, i) => (
-          <div key={a.id} className="rounded-2xl border border-[#eceef2] p-4">
+          <div key={a.id} className="rounded-2xl border border-line p-4">
             <div className="flex items-start gap-3">
               <AgentAvatar look={a.look} size={48} />
               <div className="grid flex-1 grid-cols-2 gap-2">
@@ -151,7 +167,7 @@ export function TeamEditor({ room, onClose }: { room?: Room; onClose: () => void
                       className={`${input} font-mono text-[12px]`}
                       placeholder="subagent_type"
                     />
-                    <span className="shrink-0 rounded-full bg-[#eef0f4] px-2 py-0.5 text-[11px] text-[#5d6170]">
+                    <span className="shrink-0 rounded-full bg-inset px-2 py-0.5 text-[11px] text-muted">
                       {a.source === "file" ? "from file" : a.source === "builtin" ? "built-in" : "defined here"}
                     </span>
                   </div>
@@ -172,11 +188,11 @@ export function TeamEditor({ room, onClose }: { room?: Room; onClose: () => void
                 )}
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-[12px] text-[#6c707b]">
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-[12px] text-muted">
               <label className="flex items-center gap-1">
                 <input type="radio" checked={a.isLead} onChange={() => setAgents((xs) => xs.map((x) => ({ ...x, isLead: x.id === a.id })))} /> Lead
               </label>
-              <select value={a.look.hairStyle} onChange={(e) => patch(a.id, { look: { ...a.look, hairStyle: e.target.value as HairStyle } })} className="rounded border border-[#e3e5ea] px-1 py-0.5">
+              <select value={a.look.hairStyle} onChange={(e) => patch(a.id, { look: { ...a.look, hairStyle: e.target.value as HairStyle } })} className="rounded border border-line px-1 py-0.5">
                 {HAIR.map((h) => (
                   <option key={h}>{h}</option>
                 ))}
@@ -190,19 +206,19 @@ export function TeamEditor({ room, onClose }: { room?: Room; onClose: () => void
               <label className="flex items-center gap-1">
                 <input type="checkbox" checked={a.look.glasses} onChange={(e) => patch(a.id, { look: { ...a.look, glasses: e.target.checked } })} /> glasses
               </label>
-              <button onClick={() => setAgents((xs) => xs.filter((x) => x.id !== a.id))} className="ml-auto text-[#e04848]" disabled={agents.length < 2}>
+              <button onClick={() => setAgents((xs) => xs.filter((x) => x.id !== a.id))} className="ml-auto text-danger" disabled={agents.length < 2}>
                 Remove
               </button>
             </div>
-            {i === 5 && <p className="mt-2 text-[11px] text-[#b07a10]">The office has 6 spots — more agents will share seats.</p>}
+            {i === 5 && <p className="mt-2 text-[11px] text-warning">The office has 6 spots — more agents will share seats.</p>}
           </div>
         ))}
       </div>
       <div className="mt-5 flex justify-between">
-        <button onClick={() => setAgents((xs) => [...xs, newAgent(xs.length)])} className="rounded-full border border-dashed border-[#9fb4ee] px-4 py-2 text-[13px]">
+        <button onClick={() => setAgents((xs) => [...xs, newAgent(xs.length)])} className="rounded-full border border-dashed border-accent-line px-4 py-2 text-[13px]">
           + Add agent
         </button>
-        <button onClick={save} className="rounded-full bg-[#16171d] px-5 py-2 text-[13.5px] font-semibold text-white">
+        <button onClick={save} className="rounded-full bg-action px-5 py-2 text-[13.5px] font-semibold text-white">
           {room ? "Save" : "Create room"}
         </button>
       </div>
@@ -242,14 +258,15 @@ export function useBackends() {
 export function SettingsModal({ health, claudeCode, onClose }: { health: Health | null; claudeCode: ClaudeCodeInfo | null; onClose: () => void }) {
   return (
     <Modal title="Connections" onClose={onClose}>
-      <h3 className="mb-2 text-[13px] font-semibold text-[#1d1f26]">hermes-agent</h3>
-      <div className="rounded-xl bg-[#f6f7f9] p-4 text-[13px]">
+      <WebAppSettings />
+      <h3 className="mb-2 text-[13px] font-semibold text-ink">hermes-agent</h3>
+      <div className="rounded-xl bg-inset p-4 text-[13px]">
         <div>
           Mode: <b>{health?.mode ?? "…"}</b> {health?.mode === "live" && (health.ok ? "✅ connected" : `❌ ${health.error ?? "error"}`)}
         </div>
         {health?.model && <div>Model: <b>{health.model}</b></div>}
       </div>
-      <ol className="mt-4 list-decimal space-y-2 pl-5 text-[13px] leading-relaxed text-[#3a3d47]">
+      <ol className="mt-4 list-decimal space-y-2 pl-5 text-[13px] leading-relaxed text-ink">
         <li>
           In <code>~/.hermes/.env</code> enable the API server: <code>API_SERVER_ENABLED=true</code> and <code>API_SERVER_KEY=your-secret</code>
         </li>
@@ -260,10 +277,10 @@ export function SettingsModal({ health, claudeCode, onClose }: { health: Health 
           In this project create <code>.env.local</code> with <code>HERMES_API_URL=http://127.0.0.1:8642/v1</code> and <code>HERMES_API_KEY=your-secret</code>, then restart <code>npm run dev</code>.
         </li>
       </ol>
-      <p className="mt-3 text-[12px] text-[#8b8f99]">Without HERMES_API_URL hermes rooms run in demo mode with simulated replies.</p>
+      <p className="mt-3 text-[12px] text-muted">Without HERMES_API_URL hermes rooms run in demo mode with simulated replies.</p>
 
-      <h3 className="mb-2 mt-6 text-[13px] font-semibold text-[#1d1f26]">Claude Code (subagents)</h3>
-      <div className="rounded-xl bg-[#f6f7f9] p-4 text-[13px]">
+      <h3 className="mb-2 mt-6 text-[13px] font-semibold text-ink">Claude Code (subagents)</h3>
+      <div className="rounded-xl bg-inset p-4 text-[13px]">
         <div>
           Status: <b>{claudeCode ? (claudeCode.enabled ? "enabled" : "disabled") : "…"}</b>
         </div>
@@ -274,7 +291,7 @@ export function SettingsModal({ health, claudeCode, onClose }: { health: Health 
         )}
         {claudeCode?.enabled && <div>Subagent files found: <b>{claudeCode.agents.length}</b></div>}
       </div>
-      <ol className="mt-3 list-decimal space-y-2 pl-5 text-[13px] leading-relaxed text-[#3a3d47]">
+      <ol className="mt-3 list-decimal space-y-2 pl-5 text-[13px] leading-relaxed text-ink">
         <li>
           Log in once with <code>claude</code> (or set <code>ANTHROPIC_API_KEY</code>) on the machine running this app.
         </li>
@@ -288,7 +305,7 @@ export function SettingsModal({ health, claudeCode, onClose }: { health: Health 
         </li>
       </ol>
       <form action="/api/logout" method="post" className="mt-6 inline-block">
-        <button className="mr-2 rounded-full border border-[#e3e5ea] px-4 py-2 text-[13px] text-[#3a3d47] hover:bg-[#f4f5f8]">Sign out</button>
+        <button className="mr-2 rounded-full border border-line px-4 py-2 text-[13px] text-ink hover:bg-inset">Sign out</button>
       </form>
       <button
         onClick={() => {
@@ -297,7 +314,7 @@ export function SettingsModal({ health, claudeCode, onClose }: { health: Health 
             onClose();
           }
         }}
-        className="rounded-full border border-[#f2c4c4] px-4 py-2 text-[13px] text-[#e04848]"
+        className="rounded-full border border-danger px-4 py-2 text-[13px] text-danger"
       >
         Reset office data
       </button>
@@ -308,14 +325,29 @@ export function SettingsModal({ health, claudeCode, onClose }: { health: Health 
 export function ThemeModal({ s, onClose }: { s: OfficeState; onClose: () => void }) {
   return (
     <Modal title="Office theme" onClose={onClose}>
-      <div className="grid grid-cols-4 gap-3">
+      <fieldset dir="ltr" className="mb-6">
+        <legend className="mb-2 text-[14px] font-semibold">Display mode</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {(["light", "dark", "system"] as ColorMode[]).map(mode => <button key={mode} type="button" aria-pressed={normalizeColorMode(s.colorMode) === mode}
+            onClick={() => actions.set("colorMode", mode)} className="min-h-11 rounded-xl border border-line px-3 text-[14px] capitalize aria-pressed:border-accent-line aria-pressed:bg-accent-soft">{mode}</button>)}
+        </div>
+        <p className="mt-2 text-[12px] text-muted">Applies to the office lighting and app background. Saved in this browser.</p>
+      </fieldset>
+      <h3 className="mb-2 text-[14px] font-semibold">Office palette</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {(Object.keys(THEME_FLOOR) as SceneTheme[]).map((t) => (
-          <button key={t} onClick={() => actions.set("theme", t)} className={`rounded-2xl border-2 p-3 text-[13px] capitalize ${s.theme === t ? "border-[#16171d]" : "border-transparent"}`}>
+          <button key={t} onClick={() => actions.set("theme", t)} className={`rounded-2xl border-2 p-3 text-[13px] capitalize ${s.theme === t ? "border-strong" : "border-transparent"}`}>
             <div className="mb-2 h-14 rounded-xl" style={{ background: THEME_FLOOR[t] }} />
             {t}
           </button>
         ))}
       </div>
+      <label className="mt-6 flex flex-wrap items-center justify-between gap-3 text-[14px] font-semibold">
+        Motion
+        <select aria-label="Motion preference" value={s.motionPreference ?? "system"} onChange={event => actions.set("motionPreference", event.target.value as "system" | "reduced" | "full")} className="min-h-11 rounded-xl border border-line bg-inset px-3 text-[13px] font-normal">
+          <option value="system">Follow system</option><option value="reduced">Reduced motion</option><option value="full">Full motion</option>
+        </select>
+      </label>
     </Modal>
   );
 }

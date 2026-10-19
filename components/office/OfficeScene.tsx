@@ -16,6 +16,9 @@ import { StudioEnvironment } from "./StudioEnvironment";
 import { StudioPostProcessing } from "./StudioPostProcessing";
 import { StudioJoinery } from "./StudioJoinery";
 import { StudioBoundary } from "./StudioBoundary";
+import { scenePalette, type ResolvedColorMode } from "@/lib/color-mode";
+import { dampFactor, motionIdentitySeed } from "@/lib/avatar/motion";
+import { useMotionPreferences, type MotionPreference } from "./useMotionPreferences";
 
 export const THEME_FLOOR: Record<SceneTheme, string> = {
   cream: "#f1e8dc",
@@ -33,7 +36,7 @@ const THEME_RUG: Record<SceneTheme, string> = {
 
 const S = 1.35; // agents and their workstations are modelled in chibi units, scaled up
 const HEAD_Y = 1.69 * S;
-const WALK_SPEED = 2.4; // world units per second
+const WALK_SPEED = 1.55; // relaxed walking in world units per second
 const STAND_UP = 0.45;
 const TALK = 2.2;
 
@@ -202,7 +205,7 @@ function ResponsiveZoom() {
 function StudioLoader() {
   const { active } = useProgress();
   if (!active) return null;
-  return <div role="status" className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-[#f5f2eb]/85 text-[13px] text-[#5b6558]">Opening the studio…</div>;
+  return <div role="status" className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-inset/85 text-[13px] text-muted">Opening the studio…</div>;
 }
 
 function Label({ name, tag, active, compact, onClick, topicRoomId }: { name: string; tag: string; active: boolean; compact: boolean; onClick: () => void; topicRoomId?:string }) {
@@ -212,14 +215,14 @@ function Label({ name, tag, active, compact, onClick, topicRoomId }: { name: str
       data-topic-room={topicRoomId}
       title={name}
       aria-label={topicRoomId ? name : undefined}
-      className={`max-w-[170px] flex items-center gap-1.5 whitespace-nowrap rounded-full border-[#16171d] font-semibold shadow-sm transition hover:-translate-y-px ${
+      className={`max-w-[170px] flex items-center gap-1.5 whitespace-nowrap rounded-full border-strong font-semibold shadow-sm transition hover:-translate-y-px ${
         compact ? "border px-1.5 py-px text-[10.5px]" : "border-[1.5px] px-2.5 py-[3px] text-[12.5px]"
       } ${
-        active ? "bg-[#c9d4ff] text-[#16171d]" : "bg-white text-[#16171d]"
+        active ? "bg-accent-soft text-ink" : "bg-surface text-ink"
       }`}
     >
       <span dir="auto" className="min-w-0 truncate">{name}</span>
-      {!topicRoomId && !compact && <span className="text-[11px] font-normal tracking-wide text-[#3d404b]">{tag}</span>}
+      {!topicRoomId && !compact && <span className="text-[11px] font-normal tracking-wide text-ink">{tag}</span>}
     </button>
   );
 }
@@ -242,18 +245,18 @@ const TOOL_ICON: Record<string, string> = {
 function Activity({ activity }: { activity?: string }) {
   if (!activity)
     return (
-      <div className="flex gap-1 rounded-full bg-white px-2.5 py-1.5 shadow-md">
+      <div className="flex gap-1 rounded-full bg-surface px-2.5 py-1.5 shadow-md">
         {[0, 1, 2].map((i) => (
-          <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#4f7cf5]" style={{ animationDelay: `${i * 0.15}s` }} />
+          <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent" style={{ animationDelay: `${i * 0.15}s` }} />
         ))}
       </div>
     );
   const tool = activity.split(" · ")[0];
   return (
-    <div className="flex max-w-[220px] items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[11.5px] text-[#3a3d47] shadow-md">
+    <div className="flex max-w-[220px] items-center gap-1.5 whitespace-nowrap rounded-full bg-surface px-2.5 py-1 text-[11.5px] text-ink shadow-md">
       <span>{TOOL_ICON[tool] ?? "🛠️"}</span>
       <span className="truncate">{activity}</span>
-      <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#4f7cf5]" />
+      <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
     </div>
   );
 }
@@ -261,7 +264,7 @@ function Activity({ activity }: { activity?: string }) {
 function SpeechBubble({ room, approval, agent, compact, onMinimize }: { room: Room; approval: Approval; agent: Agent; compact: boolean; onMinimize: () => void }) {
   return (
     <div
-      className={`relative animate-[pop_.35s_ease-out] border-[#16171d] bg-white shadow-[0_18px_40px_rgba(20,22,30,0.12)] ${
+      className={`relative animate-[pop_.35s_ease-out] border-strong bg-surface shadow-[0_18px_40px_rgba(20,22,30,0.12)] ${
         compact ? "rounded-[20px] border-2 p-3" : "rounded-[28px] border-[3px] p-5"
       }`}
     >
@@ -269,7 +272,7 @@ function SpeechBubble({ room, approval, agent, compact, onMinimize }: { room: Ro
         onClick={onMinimize}
         title="Later — keep it in Needs you"
         aria-label="Minimize"
-        className="absolute -right-2.5 -top-2.5 grid h-6 w-6 place-items-center rounded-full border-2 border-[#16171d] bg-white text-[13px] font-bold leading-none text-[#16171d] hover:bg-[#f4f5f8]"
+        className="absolute -right-2.5 -top-2.5 grid h-6 w-6 place-items-center rounded-full border-2 border-strong bg-surface text-[13px] font-bold leading-none text-ink hover:bg-inset"
       >
         –
       </button>
@@ -310,6 +313,9 @@ function AgentOverlays({
           <Activity activity={compact ? undefined : agent.activity} />
         </Overlay>
       )}
+      {(agent.visualActivity === "waiting" || agent.visualActivity === "unknown") && <Overlay id={`${agent.id}:above`} z={15}>
+        <span className="rounded-full bg-surface px-2 py-1 text-[11px] text-muted shadow-sm">{agent.visualActivity === "waiting" ? "Waiting for a reply" : "Status unavailable"}</span>
+      </Overlay>}
       {agent.status === "needs_you" && !bubble && (
         <Overlay id={`${agent.id}:above`} z={15}>
           <button
@@ -333,7 +339,8 @@ function AgentOverlays({
 interface ActorProps {
   agent: Agent;
   spot: Spot;
-  index: number;
+  reducedMotion: boolean;
+  selectedColor: string;
   selected: boolean;
   handoff?: { route: XZ[]; face: XZ; ts: number };
   celebrateAt: number;
@@ -341,7 +348,7 @@ interface ActorProps {
 }
 
 /** One agent: sits at their seat, and on a hand-off stands up, walks the aisles to a teammate, talks, and comes back. */
-function AgentActor({ agent, spot, index, selected, handoff, celebrateAt, lookAt }: ActorProps) {
+function AgentActor({ agent, spot, reducedMotion, selectedColor, selected, handoff, celebrateAt, lookAt }: ActorProps) {
   const group = useRef<Group>(null);
   const motion = useRef<Motion>({ walking: false, seated: true, talking: false, look: null, celebrateAt: 0 });
   const timing = useMemo(() => (handoff ? handoffTiming(handoff.route) : null), [handoff]);
@@ -364,7 +371,7 @@ function AgentActor({ agent, spot, index, selected, handoff, celebrateAt, lookAt
     let seated = true;
     let talking = false;
 
-    if (handoff && timing) {
+    if (!reducedMotion && handoff && timing) {
       const age = (Date.now() - handoff.ts) / 1000;
       const len = pathLength(handoff.route);
       if (age < timing.end) seated = age > timing.end - STAND_UP * 0.6 || age < STAND_UP * 0.3;
@@ -385,7 +392,7 @@ function AgentActor({ agent, spot, index, selected, handoff, celebrateAt, lookAt
     g.position.set(x, spot.pos[1], z);
     let diff = facing - g.rotation.y;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    g.rotation.y += diff * Math.min(1, dt * 9);
+    g.rotation.y += diff * dampFactor(9, dt);
     m.walking = walking;
     m.seated = seated;
     m.talking = talking;
@@ -393,8 +400,8 @@ function AgentActor({ agent, spot, index, selected, handoff, celebrateAt, lookAt
 
   return (
     <group ref={group} position={spot.pos} rotation={[0, spot.rot, 0]} scale={S}>
-      <StatusRing status={agent.status} selected={selected} />
-      <Character look={agent.look} status={agent.status} seed={index} motion={motion} onClick={() => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
+      <StatusRing status={agent.status} selected={selected} selectedColor={selectedColor} reducedMotion={reducedMotion} />
+      <Character look={agent.look} status={agent.status} seed={motionIdentitySeed(agent.id)} reducedMotion={reducedMotion} motion={motion} onClick={() => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
         <Anchor id={`${agent.id}:label`} position={[0, 0.15, 0.25]} />
         <Anchor id={`${agent.id}:above`} position={[0, 2.45, 0]} />
         <Anchor id={`${agent.id}:bubble`} position={[0, 2.6, 0]} />
@@ -407,6 +414,8 @@ export default function OfficeScene({
   room,
   selectedId,
   theme,
+  colorMode = "light",
+  motionPreference = "system",
   fx,
   compact = false,
   padBottom = 70,
@@ -415,12 +424,15 @@ export default function OfficeScene({
   room: Room;
   selectedId: string | null;
   theme: SceneTheme;
+  colorMode?: ResolvedColorMode;
+  motionPreference?: MotionPreference;
   fx: Fx[];
   compact?: boolean;
   /** Phone only: screen space covered by the bottom sheet / side panel, kept out of the framing. */
   padBottom?: number;
   padRight?: number;
 }) {
+  const { reduced, visible } = useMotionPreferences(motionPreference);
   const ordered = useMemo(() => [...room.agents].sort((a, b) => Number(b.isLead) - Number(a.isLead)), [room.agents]);
   const spotOf = (i: number) => SPOTS[i % SPOTS.length];
   const indexOf = (id?: string) => ordered.findIndex((a) => a.id === id);
@@ -458,11 +470,12 @@ export default function OfficeScene({
 
   // which agent (if any) owns each desk
   const deskOwner = DESKS.map((_, i) => ordered[i]);
+  const lighting = scenePalette(colorMode, theme);
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div data-scene-mode={colorMode} className="relative h-full w-full overflow-hidden">
       <StudioBoundary agents={ordered} selectedId={selectedId} onSelect={(agent) => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
-      <Canvas shadows dpr={[1, compact ? 1.25 : 1.5]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+      <Canvas frameloop={visible ? "always" : "never"} shadows dpr={[1, compact ? 1.25 : 1.5]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => { gl.toneMapping = ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; gl.shadowMap.type = PCFShadowMap; }}
         onPointerMissed={() => (document.body.style.cursor = "")}>
         <Suspense fallback={null}>
@@ -484,16 +497,16 @@ export default function OfficeScene({
           maxAzimuthAngle={1.35}
         />
 
-        <Environment resolution={64} frames={1} environmentIntensity={0.45}>
+        <Environment resolution={64} frames={1} environmentIntensity={lighting.environmentIntensity}>
           <Lightformer form="rect" intensity={2} color="#fff5e6" scale={[12, 7, 1]} position={[2, 5, -5]} target={[0, 0, 0]} />
           <Lightformer form="rect" intensity={0.7} color="#e4edff" scale={[10, 8, 1]} position={[0, 6, 8]} target={[0, 0, 0]} />
         </Environment>
-        <hemisphereLight args={["#fff9ec", "#af9981", 0.6]} />
-        <ambientLight intensity={0.1} />
+        <hemisphereLight args={[lighting.skyColor, lighting.groundColor, 0.6]} />
+        <ambientLight intensity={lighting.ambientIntensity} />
         <directionalLight
           position={[4, 5.5, -10]}
-          intensity={3.4}
-          color="#fff0d6"
+          intensity={lighting.sunIntensity}
+          color={lighting.sunColor}
           castShadow
           shadow-mapSize={compact ? [1024, 1024] : [2048, 2048]}
           shadow-camera-left={-12}
@@ -504,9 +517,9 @@ export default function OfficeScene({
           shadow-normalBias={0.025}
           shadow-radius={3}
         />
-        <directionalLight position={[8, 6, 10]} intensity={0.4} color="#e9f0ff" />
+        <directionalLight position={[8, 6, 10]} intensity={lighting.fillIntensity} color="#c7dcfa" />
 
-        <StudioEnvironment theme={theme} />
+        <StudioEnvironment theme={theme} colorMode={colorMode} />
         <StudioJoinery />
         <Rug position={[TABLE[0], 0.012, TABLE[1]]} radius={2.25} color={THEME_RUG[theme]} />
 
@@ -568,7 +581,8 @@ export default function OfficeScene({
               key={agent.id}
               agent={agent}
               spot={spotOf(i)}
-              index={i}
+              reducedMotion={reduced}
+              selectedColor={colorMode === "dark" ? "#cedbd2" : "#16171d"}
               selected={selectedId === agent.id}
               handoff={handoff}
               celebrateAt={cheer?.ts ?? 0}
@@ -578,7 +592,7 @@ export default function OfficeScene({
         })}
 
         {/* hand-off papers (thrown on arrival) and celebrations */}
-        {roomFx.map((f) => {
+        {!reduced && roomFx.map((f) => {
           if (f.kind === "handoff") {
             const r = routes.get(f.id);
             if (!r) return null;

@@ -12,10 +12,13 @@ import { RoomPanel } from "./RoomPanel";
 import { TopicPicker } from "./TopicPicker";
 import { topicActors, topicAvatarId, TOPICS_PER_PAGE } from "@/lib/topics";
 import { LoungeView, ScheduleView } from "./Views";
+import { useColorMode } from "./useColorMode";
+import { WebAppSupport } from "./WebAppSupport";
+import { useMotionPreferences } from "./useMotionPreferences";
 
 const OfficeScene = dynamic(() => import("./OfficeScene"), {
   ssr: false,
-  loading: () => <div className="grid h-full place-items-center text-[13px] text-[#9a9ea8]">Building the office…</div>,
+  loading: () => <div className="grid h-full place-items-center text-[13px] text-muted">Building the office…</div>,
 });
 
 function useClock(startedAt: number) {
@@ -35,6 +38,7 @@ function useClock(startedAt: number) {
 function useTicker() {
   useEffect(() => {
     const t = setInterval(() => {
+      if (!navigator.onLine) return;
       actions.expireApprovals();
       if (getState().fx.some((f) => Date.now() - f.ts > 8000))
         setState((s) => ({ ...s, fx: s.fx.filter((f) => Date.now() - f.ts < 8000) }));
@@ -82,6 +86,8 @@ function Menu({ className }: { className?: string }) {
 
 export default function OfficeApp() {
   const s = useOffice();
+  const colorMode = useColorMode(s.colorMode);
+  useMotionPreferences(s.motionPreference);
   const room = activeRoom(s);
   const clock = useClock(room.startedAt);
   const { health, claudeCode } = useBackends();
@@ -106,12 +112,12 @@ export default function OfficeApp() {
     // Projection order is keyed by topic identity, not status or recency updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[s.activeRoomId,topicKey]);
-  const topicPager=room.telegram && pageCount>1 ? <div dir="ltr" className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-xl border border-[#d9dfe9] bg-white/95 p-2 text-[11px] shadow-sm">
+  const topicPager=room.telegram && pageCount>1 ? <div dir="ltr" className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-xl border border-line bg-surface/95 p-2 text-[11px] shadow-sm">
     <button aria-label="Previous topic page" disabled={page===0} onClick={()=>setTopicPage(page-1)} className="h-8 rounded-lg px-2 disabled:opacity-30">←</button>
     <span>Topics · {page+1} / {pageCount}</span>
     <button aria-label="Next topic page" disabled={page===pageCount-1} onClick={()=>setTopicPage(page+1)} className="h-8 rounded-lg px-2 disabled:opacity-30">→</button>
   </div> : null;
-  const emptyTopics=topicEmpty ? <div className="absolute inset-0 z-10 grid place-items-center p-6"><div dir="ltr" className="max-w-sm rounded-2xl bg-white/95 p-5 text-center shadow-sm"><p className="text-[14px]">No topics selected for display.</p><button onClick={openTopics} className="mt-3 min-h-11 rounded-xl bg-[#1f4fd6] px-4 text-[13px] text-white">Select topics</button></div></div> : null;
+  const emptyTopics=topicEmpty ? <div className="absolute inset-0 z-10 grid place-items-center p-6"><div dir="ltr" className="max-w-sm rounded-2xl bg-surface/95 p-5 text-center shadow-sm"><p className="text-[14px]">No topics selected for display.</p><button onClick={openTopics} className="mt-3 min-h-11 rounded-xl bg-accent px-4 text-[13px] text-white">Select topics</button></div></div> : null;
 
   useEffect(() => {
     hydrate();
@@ -153,7 +159,7 @@ export default function OfficeApp() {
   const editRoom = s.rooms.find((r) => r.id === editRoomId);
   const scheduleState = { ...s, rooms: s.rooms.filter((r) => !r.telegram),
     schedules: s.schedules.filter((x) => s.rooms.some((r) => r.id === x.roomId && !r.telegram)) };
-  const chat = (compact = false) => topicEmpty ? <button onClick={openTopics} className="min-h-11 rounded-xl bg-white px-4 text-[13px] shadow-sm">Select office topics to get started</button> : (
+  const chat = (compact = false) => topicEmpty ? <button onClick={openTopics} className="min-h-11 rounded-xl bg-surface px-4 text-[13px] shadow-sm">Select office topics to get started</button> : (
     <fieldset disabled={room.telegram?.delivery === "posting"} className={`min-w-0 border-0 p-0 ${compact ? "w-full" : "w-full max-w-[640px]"} ${room.telegram ? "[&_button[aria-label=Stop]]:hidden" : ""}`}>
       <ChatBar s={s} room={room} compact={compact} />
     </fieldset>
@@ -161,6 +167,7 @@ export default function OfficeApp() {
 
   const modals = (
     <>
+      <WebAppSupport />
       {modal === "topics" && <TopicPicker s={s} onClose={()=>setModal(null)}/>}
       {modal === "new" && <TeamEditor onClose={() => setModal(null)} />}
       {modal === "team" && editRoom && !editRoom.telegram && <TeamEditor key={editRoom.id} room={editRoom} onClose={() => setModal(null)} />}
@@ -176,10 +183,10 @@ export default function OfficeApp() {
 
   if (phone)
     return (
-      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[radial-gradient(ellipse_at_30%_10%,#eef3ea_0%,#f4f4f2_50%,#f2f3f5_100%)] text-[#1d1f26]">
+      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden office-shell text-ink">
         {/* top bar */}
         <header className={`z-20 flex shrink-0 items-center gap-2 px-3 ${landscape ? "pb-1 pt-1.5" : "pb-2 pt-[max(10px,env(safe-area-inset-top))]"}`}>
-          <button onClick={() => setDrawer(true)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/80 shadow-sm" aria-label="Rooms">
+          <button onClick={() => setDrawer(true)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface/80 shadow-sm" aria-label="Rooms">
             <Menu />
           </button>
           <Logo className="h-9 w-9" />
@@ -188,9 +195,9 @@ export default function OfficeApp() {
               {s.view === "room" && <span className="text-[17px]">{room.emoji}</span>}
               <h1 className="truncate text-[17px] font-bold tracking-tight">{title}</h1>
             </div>
-            <div className="flex items-center gap-2 text-[11.5px] text-[#7a7e89]">
+            <div className="flex items-center gap-2 text-[11.5px] text-muted">
               {s.view === "room" && (
-                <span className={`flex items-center gap-1 ${badge.ok ? "text-[#1f9d63]" : "text-[#c98a12]"}`}>
+                <span className={`flex items-center gap-1 ${badge.ok ? "text-success" : "text-warning"}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${badge.ok ? "animate-pulse bg-[#1fbf6f]" : "bg-[#f0b429]"}`} />
                   {badge.label}
                 </span>
@@ -199,7 +206,7 @@ export default function OfficeApp() {
               {s.view === "room" && <span className="ml-auto shrink-0 tabular-nums">{clock}</span>}
             </div>
           </div>
-          <button onClick={() => setModal("settings")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/80 shadow-sm" aria-label="Settings">
+          <button onClick={() => setModal("settings")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface/80 shadow-sm" aria-label="Settings">
             <Sliders />
           </button>
         </header>
@@ -208,21 +215,21 @@ export default function OfficeApp() {
 
         {/* office + bottom sheet */}
         <main className="relative min-h-0 flex-1">
-          {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} fx={s.fx} compact padBottom={landscape ? 12 : 70} padRight={landscape ? 56 : 0} />}
+          {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} colorMode={colorMode} motionPreference={s.motionPreference} fx={s.fx} compact padBottom={landscape ? 12 : 70} padRight={landscape ? 56 : 0} />}
           {s.view === "lounge" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><LoungeView s={s} /></div>}
           {s.view === "schedule" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><ScheduleView s={scheduleState} /></div>}
           {s.view === "room" && (
             <div className={`absolute top-2 z-20 flex gap-2 ${landscape ? "left-3 flex-col" : "right-3 flex-col"}`}>
-              <button onClick={() => actions.set("view", "lounge")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Lounge">
+              <button onClick={() => actions.set("view", "lounge")} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface/85 shadow-sm backdrop-blur" aria-label="Lounge">
                 <ArrowLeft />
               </button>
-              <button onClick={room.telegram ? openTopics : openTeam} title={room.telegram ? "Select topics" : "Manage team"} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 text-[17px] shadow-sm backdrop-blur disabled:opacity-40" aria-label={room.telegram ? "Select topics" : "Manage team"}>
+              <button onClick={room.telegram ? openTopics : openTeam} title={room.telegram ? "Select topics" : "Manage team"} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface/85 text-[17px] shadow-sm backdrop-blur disabled:opacity-40" aria-label={room.telegram ? "Select topics" : "Manage team"}>
                 👥
               </button>
-              <button onClick={() => actions.set("view", "schedule")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Schedule">
+              <button onClick={() => actions.set("view", "schedule")} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface/85 shadow-sm backdrop-blur" aria-label="Schedule">
                 <Calendar />
               </button>
-              <button onClick={() => setModal("theme")} className="grid h-10 w-10 place-items-center rounded-full border border-[#d9dbe0] bg-white/85 shadow-sm backdrop-blur" aria-label="Theme">
+              <button onClick={() => setModal("theme")} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface/85 shadow-sm backdrop-blur" aria-label="Theme">
                 <Palette />
               </button>
             </div>
@@ -233,15 +240,15 @@ export default function OfficeApp() {
         </main>
 
         {/* chat */}
-        <div className={`z-30 shrink-0 bg-[#f4f4f2]/95 px-3 backdrop-blur ${landscape ? "pb-1.5 pt-1" : "pb-[max(10px,env(safe-area-inset-bottom))] pt-2"}`}>
+        <div className={`z-30 shrink-0 bg-inset/95 px-3 backdrop-blur ${landscape ? "pb-1.5 pt-1" : "pb-[max(10px,env(safe-area-inset-bottom))] pt-2"}`}>
           {chat(true)}
         </div>
 
         {/* rooms drawer */}
         <div className={`fixed inset-0 z-40 transition ${drawer ? "pointer-events-auto" : "pointer-events-none"}`} inert={!drawer}>
-          <div className={`absolute inset-0 bg-[#16171d]/25 transition-opacity ${drawer ? "opacity-100" : "opacity-0"}`} onClick={() => setDrawer(false)} />
+          <div className={`absolute inset-0 bg-black/40 transition-opacity ${drawer ? "opacity-100" : "opacity-0"}`} onClick={() => setDrawer(false)} />
           <div
-            className={`absolute inset-y-0 left-0 w-[86vw] max-w-[340px] bg-[#f4f4f2] shadow-2xl transition-transform duration-300 ${drawer ? "translate-x-0" : "-translate-x-full"}`}
+            className={`absolute inset-y-0 left-0 w-[86vw] max-w-[340px] bg-inset shadow-2xl transition-transform duration-300 ${drawer ? "translate-x-0" : "-translate-x-full"}`}
           >
             <RoomPanel s={s} onTopics={openTopics} drawer onClose={() => setDrawer(false)} onNewRoom={() => setModal("new")} onEditRoom={(id) => { setEditRoomId(id); setModal("team"); }} />
           </div>
@@ -251,22 +258,22 @@ export default function OfficeApp() {
     );
 
   return (
-    <div className="relative flex h-screen min-h-[720px] w-full overflow-hidden bg-[radial-gradient(ellipse_at_30%_20%,#eef3ea_0%,#f4f4f2_45%,#f2f3f5_100%)] text-[#1d1f26]">
+    <div className="relative flex h-screen min-h-[720px] w-full overflow-hidden office-shell text-ink">
       {/* soft background blobs */}
-      <div className="pointer-events-none absolute -left-40 top-10 h-[520px] w-[520px] rounded-full bg-[#dfe9d6]/60 blur-3xl" />
-      <div className="pointer-events-none absolute right-20 top-1/3 h-[420px] w-[420px] rounded-full bg-[#e6e9f4]/70 blur-3xl" />
+      <div className="pointer-events-none absolute -left-40 top-10 h-[520px] w-[520px] rounded-full bg-[var(--glow-a)]/60 blur-3xl" />
+      <div className="pointer-events-none absolute right-20 top-1/3 h-[420px] w-[420px] rounded-full bg-[var(--glow-b)]/70 blur-3xl" />
 
       {/* icon rail */}
-      <nav className="relative z-10 flex w-[84px] shrink-0 min-[1800px]:w-[108px] flex-col items-center border-r border-[#e2e3e6] pt-10">
+      <nav className="relative z-10 flex w-[84px] shrink-0 min-[1800px]:w-[108px] flex-col items-center border-r border-line pt-10">
         <Logo />
         <div className="mt-14 flex flex-col gap-5">
-          <button onClick={() => actions.set("view", "room")} className={`${railBtn} bg-[#1f4fd6] text-white shadow-[0_8px_20px_rgba(31,79,214,0.35)]`} aria-label="Office">
+          <button onClick={() => actions.set("view", "room")} className={`${railBtn} bg-accent text-white shadow-[0_8px_20px_rgba(31,79,214,0.35)]`} aria-label="Office">
             <Office />
           </button>
-          <button onClick={() => setModal("theme")} className={`${railBtn} bg-white/80 text-[#3a3d47] shadow-sm hover:bg-white`} aria-label="Theme">
+          <button onClick={() => setModal("theme")} className={`${railBtn} bg-surface/80 text-ink shadow-sm hover:bg-surface`} aria-label="Theme">
             <Palette />
           </button>
-          <button onClick={() => setModal("settings")} className={`${railBtn} bg-white/80 text-[#3a3d47] shadow-sm hover:bg-white`} aria-label="Settings">
+          <button onClick={() => setModal("settings")} className={`${railBtn} bg-surface/80 text-ink shadow-sm hover:bg-surface`} aria-label="Settings">
             <Sliders />
           </button>
         </div>
@@ -288,22 +295,22 @@ export default function OfficeApp() {
           <header className="flex items-start justify-between px-6">
             <div>
               <h1 className="text-[25px] font-bold tracking-tight">{title}</h1>
-              <p className="text-[12.5px] text-[#7a7e89]">{subtitle}</p>
+              <p className="text-[12.5px] text-muted">{subtitle}</p>
             </div>
             <div className="mt-5 flex items-center gap-4 text-[14px]">
               {s.view === "room" && (
-                <span className={`flex items-center gap-1.5 ${badge.ok ? "text-[#1f9d63]" : "text-[#c98a12]"}`} title={badge.hint}>
+                <span className={`flex items-center gap-1.5 ${badge.ok ? "text-success" : "text-warning"}`} title={badge.hint}>
                   <span className={`h-2 w-2 rounded-full ${badge.ok ? "animate-pulse bg-[#1fbf6f]" : "bg-[#f0b429]"}`} />
                   {badge.label}
                 </span>
               )}
-              {s.view === "room" && <span className="tabular-nums text-[#4e525d]">{clock}</span>}
+              {s.view === "room" && <span className="tabular-nums text-muted">{clock}</span>}
             </div>
           </header>
 
           <ConnectionStatus status={s.integrations} room={room} />
           <div className="relative min-h-0 flex-1">
-            {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} fx={s.fx} />}
+            {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} colorMode={colorMode} motionPreference={s.motionPreference} fx={s.fx} />}
             {s.view === "lounge" && <div className="h-full pt-6"><LoungeView s={s} /></div>}
             {s.view === "schedule" && <div className="h-full pt-6"><ScheduleView s={scheduleState} /></div>}
 
@@ -311,18 +318,18 @@ export default function OfficeApp() {
             {s.view === "room" && emptyTopics}
             {s.view === "room" && (
               <>
-                <button onClick={() => actions.set("view", "lounge")} className="absolute bottom-4 left-6 flex items-center gap-2 rounded-full border border-[#d9dbe0] bg-white/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-white">
+                <button onClick={() => actions.set("view", "lounge")} className="absolute bottom-4 left-6 flex items-center gap-2 rounded-full border border-line bg-surface/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-surface">
                   <ArrowLeft /> Lounge
                 </button>
                 <div className="absolute bottom-4 right-6 flex items-center gap-2">
                   <button
                     onClick={room.telegram ? openTopics : openTeam}
                     title={room.telegram ? "Select topics" : "Manage team"}
-                    className="rounded-full border border-[#d9dbe0] bg-white/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-white disabled:opacity-40"
+                    className="rounded-full border border-line bg-surface/80 px-4 py-1.5 text-[14.5px] backdrop-blur hover:bg-surface disabled:opacity-40"
                   >
                     {room.telegram ? "Select topics" : "Manage team"}
                   </button>
-                  <button onClick={() => actions.set("view", "schedule")} className="grid h-9 w-9 place-items-center rounded-full border border-[#d9dbe0] bg-white/80 backdrop-blur hover:bg-white" aria-label="Schedule">
+                  <button onClick={() => actions.set("view", "schedule")} className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface/80 backdrop-blur hover:bg-surface" aria-label="Schedule">
                     <Calendar />
                   </button>
                 </div>

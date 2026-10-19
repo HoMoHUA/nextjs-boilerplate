@@ -7,7 +7,7 @@ import type { OfficeState } from "@/lib/types";
 import { visibleRooms, topicActors } from "@/lib/topics";
 import { AgentAvatar } from "./AgentAvatar";
 
-const card = "rounded-[18px] bg-white/80 p-5 shadow-[0_10px_30px_rgba(20,22,30,0.05)] backdrop-blur";
+const card = "rounded-[18px] bg-surface/80 p-5 shadow-[0_10px_30px_rgba(20,22,30,0.05)] backdrop-blur";
 
 export function LoungeView({ s }: { s: OfficeState }) {
   return (
@@ -18,27 +18,27 @@ export function LoungeView({ s }: { s: OfficeState }) {
           const last = r.messages[r.messages.length - 1];
           const actors=r.telegram ? topicActors({...s,rooms:[r],visibleTopicIds:undefined}) : r.agents;
           return (
-            <button key={r.id} onClick={() => actions.selectRoom(r.id)} className={`${card} text-left transition hover:-translate-y-0.5 hover:bg-white`}>
+            <button key={r.id} onClick={() => actions.selectRoom(r.id)} className={`${card} text-left transition hover:-translate-y-0.5 hover:bg-surface`}>
               <div className="flex items-center gap-3">
                 <span className="text-3xl">{r.emoji}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-[#1d1f26]">{r.name}</div>
-                  <div className="text-[12px] text-[#7a7e89]">
+                  <div className="font-semibold text-ink">{r.name}</div>
+                  <div className="text-[12px] text-muted">
                     {r.telegram ? "Telegram topic" : `${r.agents.length} agents · ${r.outputs.length} outputs`}
                   </div>
                 </div>
-                {pending > 0 && <span className="rounded bg-[#16171d] px-1.5 py-0.5 text-[10px] font-bold text-white">{pending} NEEDS YOU</span>}
+                {pending > 0 && <span className="rounded bg-action px-1.5 py-0.5 text-[10px] font-bold text-white">{pending} NEEDS YOU</span>}
               </div>
               <div className="mt-4 flex gap-2">
                 {actors.map((a) => (
                   <div key={a.id} className="flex flex-col items-center gap-1">
                     <AgentAvatar look={a.look} size={36} />
-                    <span className="text-[11px] text-[#4e525d]">{a.name}</span>
-                    <span className={`h-1.5 w-1.5 rounded-full ${a.status === "working" ? "animate-pulse bg-[#4f7cf5]" : a.status === "needs_you" ? "bg-[#ea2b2b]" : "bg-[#5ccf6a]"}`} />
+                    <span className="text-[11px] text-muted">{a.name}</span>
+                    <span className={`h-1.5 w-1.5 rounded-full ${a.status === "working" ? "animate-pulse bg-accent" : a.status === "needs_you" ? "bg-[#ea2b2b]" : "bg-[#5ccf6a]"}`} />
                   </div>
                 ))}
               </div>
-              <p className="mt-3 line-clamp-2 text-[12.5px] text-[#6c707b]">{last ? last.content : "No conversation yet."}</p>
+              <p className="mt-3 line-clamp-2 text-[12.5px] text-muted">{last ? last.content : "No conversation yet."}</p>
             </button>
           );
         })}
@@ -53,7 +53,7 @@ export function ScheduleView({ s }: { s: OfficeState }) {
   const [agentId, setAgentId] = useState("");
   const [prompt, setPrompt] = useState("");
   const [every, setEvery] = useState(60);
-  const input = "rounded-lg border border-[#e3e5ea] bg-white px-3 py-2 text-[13px] outline-none focus:border-[#4f7cf5]";
+  const input = "rounded-lg border border-line bg-surface px-3 py-2 text-[13px] outline-none focus:border-accent-line";
 
   const add = () => {
     if (!prompt.trim() || !room) return;
@@ -72,7 +72,7 @@ export function ScheduleView({ s }: { s: OfficeState }) {
     <div className="mx-auto h-full max-w-[720px] overflow-y-auto px-2 pb-10">
       <div className={card}>
         <h3 className="text-[15px] font-semibold">Schedule a recurring task</h3>
-        <p className="mt-1 text-[12px] text-[#7a7e89]">Runs while this office is open in a browser tab. For server-side jobs use hermes-agent’s own cron.</p>
+        <p className="mt-1 text-[12px] text-muted">Runs while this office is open in a browser tab. For server-side jobs use hermes-agent’s own cron.</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <select className={input} value={room?.id} onChange={(e) => setRoomId(e.target.value)}>
             {s.rooms.map((r) => (
@@ -92,7 +92,7 @@ export function ScheduleView({ s }: { s: OfficeState }) {
           <label className="flex items-center gap-2 text-[13px]">
             every <input type="number" min={1} className={`${input} w-24`} value={every} onChange={(e) => setEvery(Number(e.target.value))} /> minutes
           </label>
-          <button onClick={add} className="justify-self-end rounded-full bg-[#16171d] px-5 py-2 text-[13px] font-semibold text-white">
+          <button onClick={add} className="justify-self-end rounded-full bg-action px-5 py-2 text-[13px] font-semibold text-white">
             Add schedule
           </button>
         </div>
@@ -107,17 +107,17 @@ export function ScheduleView({ s }: { s: OfficeState }) {
               <span className="text-2xl">{r?.emoji}</span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13.5px] font-semibold">{x.prompt}</div>
-                <div className="text-[12px] text-[#7a7e89]">
+                <div className="text-[12px] text-muted">
                   {r?.name} · @{a?.name} · every {x.everyMinutes} min · next {new Date(x.nextRunAt).toLocaleTimeString("en-US")}
                 </div>
               </div>
               <button
                 onClick={() => setState((st) => ({ ...st, schedules: st.schedules.map((y) => (y.id === x.id ? { ...y, enabled: !y.enabled } : y)) }))}
-                className={`rounded-full px-3 py-1 text-[12px] ${x.enabled ? "bg-[#e3f6ea] text-[#1f9d63]" : "bg-[#f0f1f4] text-[#7a7e89]"}`}
+                className={`rounded-full px-3 py-1 text-[12px] ${x.enabled ? "bg-success-soft text-success" : "bg-inset text-muted"}`}
               >
                 {x.enabled ? "Running" : "Paused"}
               </button>
-              <button onClick={() => setState((st) => ({ ...st, schedules: st.schedules.filter((y) => y.id !== x.id) }))} className="text-[12px] text-[#e04848]">
+              <button onClick={() => setState((st) => ({ ...st, schedules: st.schedules.filter((y) => y.id !== x.id) }))} className="text-[12px] text-danger">
                 Delete
               </button>
             </div>

@@ -15,6 +15,7 @@ import {
 import { lookFor, seedState, uid } from "./seed";
 import { canonicalTopics, topicVisible } from "./topics";
 import { initializeAvatarPreferences } from "./avatar/storage";
+import { normalizeColorMode } from "./color-mode";
 import type { Agent, AgentStatus, Fx, IntegrationSnapshot, OfficeState, Room, Step } from "./types";
 
 const STORAGE_KEY = "arklyn-office-v3";
@@ -73,6 +74,7 @@ export function hydrate() {
         setState(() => ({
           ...seedState(),
           ...saved,
+          colorMode: normalizeColorMode(saved.colorMode),
           avatarPreferences: initializeAvatarPreferences(saved.avatarPreferences, saved.rooms.flatMap(r => r.telegram ? [r.telegram] : []), true),
           fx: [],
           visibleTopicIds:Array.isArray(saved.visibleTopicIds) ? [...new Set(saved.visibleTopicIds.filter(id=>typeof id==="string"))] : undefined,
@@ -166,7 +168,7 @@ export function mergeIntegrations(snapshot: IntegrationSnapshot) {
     const connected=canonicalTopics(snapshot.rooms).map(r=>connectedRoom(snapshot,r,s.rooms.find(old=>old.id === r.id) ?? s.rooms.find(old=>old.telegram?.topicId === r.topicId)));
     connected.sort((a,b)=>(b.lastMessageAt ?? 0)-(a.lastMessageAt ?? 0) || Number(b.lastMessageId ?? 0)-Number(a.lastMessageId ?? 0) || a.id.localeCompare(b.id));
     const rooms=[...connected,...s.rooms.filter(r=>!r.telegram)];
-    if (!rooms.length) return {...s,avatarPreferences,integrations:{phase:"synced",group:snapshot.group,bots:snapshot.bots,updatedAt:snapshot.updatedAt}};
+    if (!rooms.length) return {...s,avatarPreferences,integrations:{phase:"synced",group:snapshot.group,bots:snapshot.bots,updatedAt:snapshot.updatedAt,observedAt:Date.now()}};
     const previousActive=s.rooms.find(r=>r.id===s.activeRoomId);
     const visible=connected.filter(r=>topicVisible(s,r.telegram!.topicId));
     const migrated=previousActive?.telegram ? visible.find(r=>r.telegram?.topicId===previousActive.telegram?.topicId) : undefined;
@@ -179,7 +181,7 @@ export function mergeIntegrations(snapshot: IntegrationSnapshot) {
     return {...s,avatarPreferences,rooms,activeRoomId:active.id,selectedAgentId:validSelected?s.selectedAgentId:preferred?.id ?? null,
       targetAgentId:validTarget?s.targetAgentId:preferred?.id ?? null,
       rightTab:active.telegram && (initial || active.id!==s.activeRoomId) ? "thread" : s.rightTab,
-      integrations:{phase:"synced",group:snapshot.group,bots:snapshot.bots,updatedAt:snapshot.updatedAt}};
+      integrations:{phase:"synced",group:snapshot.group,bots:snapshot.bots,updatedAt:snapshot.updatedAt,observedAt:Date.now()}};
   });
 }
 
@@ -213,18 +215,20 @@ export async function loadTopicHistory(roomId:string,older=false,force=false) {
   finally{clearTimeout(deadline);if(historyControllers.get(roomId)===ctrl)historyControllers.delete(roomId);}
 }
 
-/** Real event stream; bounded HTTP polling only while it is unavailable. */
+/** Real event stream plus a bounded freshness refresh for comment-only keepalives. */
 export function startIntegrationPolling():()=>void {
   let stopped=false,polling=false,live=false,first=true;
+  let lastSnapshotAt=0;
   let controller:AbortController|undefined;
   const apply=(snapshot:IntegrationSnapshot)=>{
     if(stopped || !Array.isArray(snapshot.rooms) || !Number.isFinite(snapshot.updatedAt))return;
+    lastSnapshotAt=Date.now();
     mergeIntegrations(snapshot);
     const room=activeRoom(getState());if(room?.telegram && topicVisible(getState(),room.telegram.topicId))void loadTopicHistory(room.id,false,first);
     first=false;
   };
   async function poll(){
-    if(stopped || polling || live)return;
+    if(stopped || polling || (live && Date.now()-lastSnapshotAt<30000))return;
     polling=true;controller=new AbortController();const timer=setTimeout(()=>controller?.abort(),20000);
     try{const response=await fetch("/api/integrations",{signal:controller.signal,cache:"no-store"});if(!response.ok)throw new Error(`Telegram sync failed (${response.status})`);apply(await response.json());}
     catch(error){if(!stopped && !live)setState(s=>({...s,integrations:{...s.integrations,bots:s.integrations?.bots ?? [],phase:"error",error:error instanceof Error?error.message:"Sync interrupted"}}));}

@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import { topicVisualActivity } from "./status";
+import { seedState } from "../seed";
+const seed = seedState();
+const room = { ...seed.rooms[0], telegram: { groupId: "1", topicId: "23", busy: false, pendingMessages: [], delivery: "queued" as const } };
+const connected = { phase: "synced" as const, bots: [], updatedAt: 100000 };
+assert.equal(topicVisualActivity(room, connected, 100100), "waiting");
+assert.equal(topicVisualActivity({ ...room, agents: room.agents.map(a => ({ ...a, kind: "subagent", runtime: true, status: "working" })) }, connected, 100100), "waiting", "heuristic runtime-worker timestamps are not active-turn evidence");
+assert.equal(topicVisualActivity({ ...room, telegram: { ...room.telegram, delivery: "posting" } }, connected, 100100), "waiting");
+assert.equal(topicVisualActivity({ ...room, telegram: { ...room.telegram, busy: true } }, connected, 100100), "processing");
+assert.equal(topicVisualActivity(room, { ...connected, phase: "error" }, 100100), "unknown");
+assert.equal(topicVisualActivity(room, connected, 160001), "unknown");
+assert.equal(topicVisualActivity(room, { ...connected, updatedAt: 999999999, observedAt: 100000 }, 100100), "waiting", "fresh receipt time works independently of server clock skew");
+assert.equal(topicVisualActivity({ ...room, agents: room.agents.map(a => ({ ...a, status: "done" })) }, connected, 100100), "waiting", "worker completion never implies success or typing");
+assert.equal(topicVisualActivity({ ...room, telegram: { ...room.telegram, delivery: undefined } }, connected, 100100), "idle");
+console.log("PASS actual processing evidence, posting/queued wait, stale/offline unknown and no inferred success");

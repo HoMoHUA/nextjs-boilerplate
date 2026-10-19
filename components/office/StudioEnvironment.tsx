@@ -5,15 +5,12 @@ import { RoundedBox, useTexture } from "@react-three/drei";
 import { Color, InstancedMesh, Object3D, SRGBColorSpace } from "three";
 import type { SceneTheme } from "@/lib/types";
 import { useStudioTexture } from "./studio/materials";
+import { scenePalette, type ResolvedColorMode } from "@/lib/color-mode";
 
 type V3 = [number, number, number];
 
-const WALL: Record<SceneTheme, string> = {
-  cream: "#f6eddf", mint: "#e1e9dc", lavender: "#eae1e9", sky: "#e3e9e8",
-};
-
 /** Board gaps and staggered joints are real geometry, batched into one draw. */
-function OakFloor() {
+function OakFloor({ tint, plinth }: { tint: number; plinth: string }) {
   const map = useStudioTexture("oak", 1.3, 0.32, Math.PI / 2);
   const boards = useMemo(() => {
     const items: { x: number; z: number; width: number; tone: string }[] = [];
@@ -39,16 +36,16 @@ function OakFloor() {
       dummy.scale.set(board.width, 0.072, 0.595);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
-      mesh.setColorAt(i, new Color(board.tone));
+      mesh.setColorAt(i, new Color(board.tone).multiplyScalar(tint));
     }
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
-  }, [boards]);
+  }, [boards, tint]);
   return (
     <group>
       <RoundedBox args={[15.7, 0.32, 12.55]} radius={0.1} smoothness={3} position={[0, -0.235, -0.16]} receiveShadow>
-        <meshStandardMaterial color="#a39175" roughness={0.85} />
+        <meshStandardMaterial color={plinth} roughness={0.85} />
       </RoundedBox>
       <instancedMesh ref={ref} args={[undefined, undefined, boards.length]} receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
@@ -67,7 +64,7 @@ function Plaster({ position, size, color }: { position: V3; size: V3; color: str
   );
 }
 
-function WindowWall() {
+function WindowWall({ tint }: { tint: string }) {
   const source = useTexture("/textures/studio/garden.jpg");
   const garden = useMemo(() => {
     const map = source.clone();
@@ -83,7 +80,7 @@ function WindowWall() {
       {/* The outside stays behind the glazing, with no network assets at runtime. */}
       <mesh position={[2.1, 2.38, -6.19]}>
         <planeGeometry args={[9.8, 2.48]} />
-        <meshBasicMaterial map={garden} color="#e4e6d2" toneMapped={false} />
+        <meshBasicMaterial map={garden} color={tint} toneMapped={false} />
       </mesh>
       {[-2.8, -0.35, 2.1, 4.55, 7].map((x) => (
         <mesh key={x} position={[x, 2.38, -6.1]} castShadow>
@@ -130,18 +127,19 @@ function LoungeRug() {
 }
 
 /** Architecture sits outside the existing desk, walking and topic hit targets. */
-export function StudioEnvironment({ theme }: { theme: SceneTheme }) {
-  const wall = WALL[theme];
+export function StudioEnvironment({ theme, colorMode }: { theme: SceneTheme; colorMode: ResolvedColorMode }) {
+  const palette = scenePalette(colorMode, theme);
+  const wall = palette.wall;
   return (
     <group name="Arklyn studio architecture">
-      <OakFloor />
+      <OakFloor tint={palette.floorTint} plinth={palette.plinth} />
       <LoungeRug />
       <Plaster position={[-7.6, 1.8, -3.5]} size={[0.22, 3.6, 5.7]} color={wall} />
       <Plaster position={[-5.25, 1.8, -6.18]} size={[4.9, 3.6, 0.24]} color={wall} />
       <Plaster position={[7.35, 1.8, -6.18]} size={[0.5, 3.6, 0.24]} color={wall} />
       <Plaster position={[2.1, 0.55, -6.18]} size={[9.8, 1.1, 0.24]} color={wall} />
       <Plaster position={[2.1, 3.73, -6.18]} size={[10, 0.2, 0.3]} color={wall} />
-      <WindowWall />
+      <WindowWall tint={palette.gardenTint} />
       <WallPanel x={2.1} z={-6.02} width={9.8} />
       <Plaster position={[-7.6, 0.5, 3.2]} size={[0.22, 1, 5.65]} color={wall} />
       <Plaster position={[6.2, 0.55, 5.91]} size={[2.6, 1.1, 0.22]} color={wall} />

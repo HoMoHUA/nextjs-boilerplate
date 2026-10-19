@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import { normalizeColorMode, resolveColorMode, scenePalette } from "./color-mode";
+assert.equal(normalizeColorMode(undefined), "system");
+assert.equal(normalizeColorMode("broken"), "system");
+assert.equal(normalizeColorMode("dark"), "dark");
+assert.equal(resolveColorMode("system", true), "dark");
+assert.equal(resolveColorMode("system", false), "light");
+assert.equal(resolveColorMode("light", true), "light");
+assert.equal(resolveColorMode("dark", false), "dark");
+const light = scenePalette("light", "cream");
+const dark = scenePalette("dark", "cream");
+assert.notEqual(dark.wall, light.wall, "dark mode changes actual 3D wall materials");
+assert.notEqual(dark.gardenTint, light.gardenTint, "night windows are not a daytime emissive billboard");
+assert.ok(dark.sunIntensity < light.sunIntensity);
+assert.ok(dark.ambientIntensity > 0, "characters remain lit at night");
+console.log("PASS color preference normalization, system/override and actual scene lighting/material profiles");

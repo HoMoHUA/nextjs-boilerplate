@@ -5,12 +5,12 @@ function inline(text: string, key: string) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\)|(?<![\w*])[_*][^_*\n]+[_*](?![\w*]))/g);
   return parts.map((p, i) => {
     const k = `${key}-${i}`;
-    if (/^\*\*[^*]+\*\*$/.test(p)) return <strong key={k} className="font-semibold text-[#1d1f26]">{p.slice(2, -2)}</strong>;
-    if (/^[_*][^_*]+[_*]$/.test(p)) return <em key={k} className="text-[#6c707b]">{p.slice(1, -1)}</em>;
-    if (/^`[^`]+`$/.test(p)) return <code key={k} className="rounded bg-[#eef0f4] px-1 py-px font-mono text-[0.92em] text-[#3b3f4b]">{p.slice(1, -1)}</code>;
+    if (/^\*\*[^*]+\*\*$/.test(p)) return <strong key={k} className="font-semibold text-ink">{p.slice(2, -2)}</strong>;
+    if (/^[_*][^_*]+[_*]$/.test(p)) return <em key={k} className="text-muted">{p.slice(1, -1)}</em>;
+    if (/^`[^`]+`$/.test(p)) return <code key={k} className="rounded bg-inset px-1 py-px font-mono text-[0.92em] text-ink">{p.slice(1, -1)}</code>;
     const link = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(p);
     if (link && /^https?:\/\//.test(link[2]))
-      return <a key={k} href={link[2]} target="_blank" rel="noreferrer" className="text-[#2156f3] underline underline-offset-2">{link[1]}</a>;
+      return <a key={k} href={link[2]} target="_blank" rel="noreferrer" className="text-link underline underline-offset-2">{link[1]}</a>;
     return <Fragment key={k}>{p}</Fragment>;
   });
 }
@@ -28,7 +28,7 @@ export function Markdown({ text }: { text: string }) {
       while (i < lines.length && !lines[i].startsWith("```")) code.push(lines[i++]);
       i++;
       blocks.push(
-        <pre key={i} className="my-1.5 overflow-x-auto rounded-lg bg-[#16171d] px-3 py-2 font-mono text-[11.5px] leading-relaxed text-[#e8eaf0]">
+        <pre key={i} className="my-1.5 overflow-x-auto rounded-lg bg-action px-3 py-2 font-mono text-[11.5px] leading-relaxed text-[#e8eaf0]">
           {code.join("\n")}
         </pre>,
       );
@@ -36,7 +36,7 @@ export function Markdown({ text }: { text: string }) {
     }
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);
     if (heading) {
-      blocks.push(<div key={i} className="mt-1.5 font-semibold text-[#1d1f26]">{inline(heading[2], `h${i}`)}</div>);
+      blocks.push(<div key={i} className="mt-1.5 font-semibold text-ink">{inline(heading[2], `h${i}`)}</div>);
       i++;
       continue;
     }

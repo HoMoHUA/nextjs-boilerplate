@@ -55,7 +55,7 @@ export function seedState(): OfficeState {
   ];
   return {
     rooms, activeRoomId: rooms[0].id, view: "room", selectedAgentId: hermes.id, targetAgentId: hermes.id,
-    rightTab: "inspector", schedules: [], theme: "cream", roomsCollapsed: false,
+    rightTab: "inspector", schedules: [], theme: "cream", colorMode: "system", roomsCollapsed: false,
     panelCollapsed: false, focusOutputId: null, fx: [],
   };
 }

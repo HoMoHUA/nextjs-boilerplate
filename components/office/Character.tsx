@@ -6,6 +6,7 @@ import { useGLTF } from "@react-three/drei";
 import { Color, MeshPhysicalMaterial, Vector3, type Group, type Material, type Mesh, type MeshStandardMaterial } from "three";
 import type { AgentLook, AgentStatus } from "@/lib/types";
 import { useStudioTexture } from "./studio/materials";
+import { dampFactor, motionProfile, relativeGazeYaw, sampleMotion } from "@/lib/avatar/motion";
 
 const MODEL_URL = "/models/studio/characters.glb";
 
@@ -85,12 +86,14 @@ export interface CharacterProps {
   look: AgentLook;
   status: AgentStatus;
   seed: number;
+  reducedMotion?: boolean;
   motion: React.RefObject<Motion>;
   onClick?: () => void;
   children?: React.ReactNode;
 }
 
 const tmp = new Vector3();
+const forward = new Vector3();
 const HIP = 0.6;
 
 type Joint = Group | null;
@@ -100,7 +103,9 @@ const approach = (cur: number, target: number, k: number) => cur + (target - cur
  * Authored adult proportions with articulated local joint origins. The scene
  * continues to drive sitting, typing, walking, waving and celebrations.
  */
-export function Character({ look, status, seed, motion, onClick, children }: CharacterProps) {
+export function Character({ look, status, seed, reducedMotion = false, motion, onClick, children }: CharacterProps) {
+  const profile = useMemo(() => motionProfile(seed), [seed]);
+  const elapsed = useRef(0);
   const root = useRef<Group>(null);
   const body = useRef<Group>(null);
   const torso = useRef<Group>(null);
@@ -130,37 +135,39 @@ export function Character({ look, status, seed, motion, onClick, children }: Cha
 
   const shortSleeves = look.hairStyle === "curly" || look.hairStyle === "bun" || look.hairStyle === "fluffy";
 
-  useFrame(({ clock }, dt) => {
-    const t = clock.elapsedTime + seed * 1.7;
+  useFrame((_, dt) => {
+    elapsed.current += Math.max(0, Math.min(.05, dt));
+    const t = elapsed.current + profile.phase;
     const m = motion.current;
-    const k = Math.min(1, dt * 8);
-    sit.current = approach(sit.current, m.seated ? 1 : 0, Math.min(1, dt * 5));
+    const k = dampFactor(8, dt);
+    const sample = sampleMotion(profile, elapsed.current, status === "working", reducedMotion);
+    sit.current = approach(sit.current, m.seated ? 1 : 0, dampFactor(5, dt));
     const seated = sit.current;
     const walking = m.walking;
     const working = status === "working";
     const sinceCheer = (Date.now() - m.celebrateAt) / 1000;
-    const cheering = sinceCheer >= 0 && sinceCheer < 1.6;
+    const cheering = !reducedMotion && sinceCheer >= 0 && sinceCheer < 1.6;
 
     // body bob
     if (body.current) {
-      let y = Math.sin(t * 2) * 0.008;
+      let y = sample.breath;
       if (walking) y += Math.abs(Math.sin(t * 9)) * 0.04;
       if (cheering) y += Math.max(0, Math.sin(sinceCheer * Math.PI * 2.5)) * 0.3 * (1 - sinceCheer / 1.6) * (1 - seated * 0.5);
       body.current.position.y = y;
     }
     if (torso.current) {
       // lean in to type, lean back to relax
-      const lean = seated * (working ? 0.12 : status === "idle" ? -0.08 : 0) + (walking ? 0.06 : 0);
+      const lean = seated * (working ? 0.12 : status === "idle" ? -0.06 + sample.posture : 0) + (walking ? 0.06 : 0);
       torso.current.rotation.x = approach(torso.current.rotation.x, lean, k);
     }
 
     // legs: hip/knee angles blend between sitting and standing; walking swings them
-    const swing = walking ? Math.sin(t * 9) : 0;
+    const swing = walking && !reducedMotion ? Math.sin(t * profile.gaitRate) : 0;
     for (let i = 0; i < 2; i++) {
       const s = i === 0 ? 1 : -1;
       const hip = hips.current[i];
       const knee = knees.current[i];
-      const tap = seated > 0.5 && working ? Math.max(0, Math.sin(t * 3 + i * 2)) * 0.06 : 0;
+      const tap = seated > 0.5 && working ? Math.max(0, Math.sin(t * 2.2 + i * 2)) * 0.025 * sample.typing : 0;
       if (hip) {
         hip.rotation.x = approach(hip.rotation.x, -Math.PI / 2 * seated + swing * s * 0.6 * (1 - seated), k);
         hip.position.y = HIP - 0.05 * seated;
@@ -173,21 +180,20 @@ export function Character({ look, status, seed, motion, onClick, children }: Cha
     }
 
     // blink every few seconds; raise brows when waiting on the human
-    if (eyes.current) eyes.current.scale.y = (t * 0.31 + seed * 0.13) % 1 > 0.965 ? 0.1 : 1;
+    if (eyes.current) eyes.current.scale.y = sample.blink;
     if (brows.current) brows.current.position.y = approach(brows.current.position.y, status === "needs_you" ? 0.03 : 0, k);
 
     if (head.current && root.current) {
-      let yaw = status === "needs_you" ? 0.55 + Math.sin(t * 1.4) * 0.15 : Math.sin(t * 0.5) * 0.1;
-      if (m.look && !walking && Math.sin(t * 0.45) > 0.2) {
+      let yaw = status === "needs_you" ? sample.gesture * .3 : sample.posture * 2;
+      if (m.look && !walking && sample.gaze > 0) {
         root.current.getWorldPosition(tmp);
         const world = Math.atan2(m.look.x - tmp.x, m.look.z - tmp.z);
-        let rel = world - root.current.rotation.y;
-        rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-        yaw = Math.max(-1, Math.min(1, rel));
+        root.current.getWorldDirection(forward);
+        yaw = relativeGazeYaw(world, Math.atan2(forward.x, forward.z)) * sample.gaze;
       }
-      head.current.rotation.y = approach(head.current.rotation.y, yaw, Math.min(1, dt * 4));
-      head.current.rotation.z = Math.sin(t * 0.9) * 0.04;
-      head.current.rotation.x = approach(head.current.rotation.x, working && seated > 0.5 ? 0.12 : Math.sin(t * 0.7) * 0.04, k);
+      head.current.rotation.y = approach(head.current.rotation.y, yaw, dampFactor(4, dt));
+      head.current.rotation.z = sample.posture;
+      head.current.rotation.x = approach(head.current.rotation.x, working && seated > 0.5 ? 0.12 : sample.posture, k);
     }
 
     // arms: [shoulderX, shoulderZ(outward), elbowX] per side
@@ -207,18 +213,18 @@ export function Character({ look, status, seed, motion, onClick, children }: Cha
         sx = -1.1 + Math.sin(t * 2.4) * 0.2;
         sz = 0.2;
         ex = -0.5 + Math.sin(t * 3.1) * 0.25;
-      } else if (status === "needs_you" && s === 1) {
+      } else if (status === "needs_you" && s === 1 && sample.gesture > 0) {
         sx = -0.2;
-        sz = 2.5;
-        ex = -0.6 + Math.sin(t * 8) * 0.45;
+        sz = 0.2 + sample.gesture * 1.3;
+        ex = -0.6;
       } else if (seated > 0.5 && working) {
         sx = -0.45;
         sz = 0.18;
-        ex = -1.15 + Math.sin(t * 15 + i * 1.7) * 0.07;
+        ex = -1.15 + Math.sin(t * (12.5+i*.7) + i * 1.7) * 0.065 * sample.typing;
       } else if (seated > 0.5) {
         sx = -0.25;
         sz = 0.2;
-        ex = -1.0 + Math.sin(t * 1.2 + i) * 0.03;
+        ex = -1.0 + sample.posture;
       }
       const sh = shoulders.current[i];
       const el = elbows.current[i];

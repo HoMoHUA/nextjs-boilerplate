@@ -36,6 +36,8 @@ export interface Agent {
   runtime?: boolean;
   /** Scene-only representative of a Telegram topic, never a send target. */
   topicRoomId?: string;
+  /** Presentation only; never a routing or execution signal. */
+  visualActivity?: import("./avatar/status").VisualActivity;
 }
 
 export interface Message {
@@ -138,6 +140,8 @@ export interface IntegrationStatus {
   group?: IntegrationSnapshot["group"];
   bots: IntegrationSnapshot["bots"];
   updatedAt?: number;
+  /** Browser receipt time; independent of backend clock and content-change time. */
+  observedAt?: number;
   error?: string;
 }
 
@@ -194,6 +198,8 @@ export interface OfficeState {
   rightTab: "inspector" | "output" | "thread";
   schedules: Schedule[];
   theme: SceneTheme;
+  colorMode?: import("./color-mode").ColorMode;
+  motionPreference?: "system" | "reduced" | "full";
   roomsCollapsed: boolean;
   panelCollapsed: boolean;
   focusOutputId: string | null;

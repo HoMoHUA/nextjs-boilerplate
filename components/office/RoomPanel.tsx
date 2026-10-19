@@ -7,17 +7,17 @@ import type { OfficeState, Room } from "@/lib/types";
 import { ChevronLeft, ChevronRight, Dots, Plus } from "./icons";
 
 const card =
-  "rounded-[14px] border border-white/70 bg-white/75 shadow-[0_1px_2px_rgba(20,22,30,0.04),0_8px_24px_rgba(20,22,30,0.04)] backdrop-blur";
+  "rounded-[14px] border border-white/70 bg-surface/75 shadow-[0_1px_2px_rgba(20,22,30,0.04),0_8px_24px_rgba(20,22,30,0.04)] backdrop-blur";
 
 function RoomMenu({ room, onEdit }: { room: Room; onEdit: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()}>
-      <button onClick={() => setOpen((v) => !v)} className="rounded-md p-1 text-[#4a4d57] hover:bg-black/5" aria-label="Room menu">
+      <button onClick={() => setOpen((v) => !v)} className="rounded-md p-1 text-ink hover:bg-action-hover/5" aria-label="Room menu">
         <Dots />
       </button>
       {open && (
-        <div className="absolute right-0 top-8 z-30 w-40 overflow-hidden rounded-xl border border-[#eceef2] bg-white py-1 text-[13px] shadow-xl" onMouseLeave={() => setOpen(false)}>
+        <div className="absolute right-0 top-8 z-30 w-40 overflow-hidden rounded-xl border border-line bg-surface py-1 text-[13px] shadow-xl" onMouseLeave={() => setOpen(false)}>
           {[
             ["Rename / edit team", onEdit],
             ["Clear conversation", () => actions.clearRoom(room.id)],
@@ -29,7 +29,7 @@ function RoomMenu({ room, onEdit }: { room: Room; onEdit: () => void }) {
                 setOpen(false);
                 (fn as () => void)();
               }}
-              className="block w-full px-3 py-2 text-left hover:bg-[#f4f5f8]"
+              className="block w-full px-3 py-2 text-left hover:bg-inset"
             >
               {label as string}
             </button>
@@ -69,13 +69,13 @@ export function RoomPanel({
   if (s.roomsCollapsed && !drawer) {
     return (
       <div className="flex w-14 flex-col items-center pt-10">
-        <button onClick={() => actions.set("roomsCollapsed", false)} className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm hover:bg-white" aria-label="Expand rooms">
+        <button onClick={() => actions.set("roomsCollapsed", false)} className="grid h-12 w-12 place-items-center rounded-full bg-surface/70 shadow-sm hover:bg-surface" aria-label="Expand rooms">
           <ChevronRight />
         </button>
-        <button onClick={onTopics} aria-label="Select topics" title="Select topics" className="mt-4 grid h-11 w-11 place-items-center rounded-xl bg-white text-xl">☑</button>
+        <button onClick={onTopics} aria-label="Select topics" title="Select topics" className="mt-4 grid h-11 w-11 place-items-center rounded-xl bg-surface text-xl">☑</button>
         <div className="mt-6 flex flex-col gap-3 overflow-y-auto">
           {rooms.map((r) => (
-            <button key={r.id} title={r.name} onClick={() => actions.selectRoom(r.id)} className={`grid h-11 w-11 place-items-center rounded-xl text-xl ${r.id === s.activeRoomId && s.view === "room" ? "bg-white shadow ring-1 ring-[#4f7cf5]/40" : "bg-white/60"}`}>
+            <button key={r.id} title={r.name} onClick={() => actions.selectRoom(r.id)} className={`grid h-11 w-11 place-items-center rounded-xl text-xl ${r.id === s.activeRoomId && s.view === "room" ? "bg-surface shadow ring-1 ring-[#4f7cf5]/40" : "bg-surface/60"}`}>
               {r.emoji}
             </button>
           ))}
@@ -89,44 +89,44 @@ export function RoomPanel({
       <div className="flex items-center gap-4">
         <button
           onClick={() => (drawer ? onClose?.() : actions.set("roomsCollapsed", true))}
-          className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm hover:bg-white"
+          className="grid h-12 w-12 place-items-center rounded-full bg-surface/70 shadow-sm hover:bg-surface"
           aria-label={drawer ? "Close rooms" : "Collapse rooms"}
         >
           <ChevronLeft />
         </button>
-        <h2 className="text-[24px] font-light tracking-tight text-[#20222a]">Chat Rooms</h2>
+        <h2 className="text-[24px] font-light tracking-tight text-ink">Chat Rooms</h2>
       </div>
 
       <div className="mt-8 flex flex-col gap-5">
-        <button onClick={pick(() => actions.set("view", "lounge"))} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-white ${s.view === "lounge" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
+        <button onClick={pick(() => actions.set("view", "lounge"))} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-surface ${s.view === "lounge" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
           <span className="text-[34px] leading-none">☕</span>
           <span className="min-w-0">
-            <span className="block text-[14.5px] font-semibold text-[#1d1f26]">Lounge</span>
-            <span className="block truncate text-[11.5px] text-[#7a7e89]">
+            <span className="block text-[14.5px] font-semibold text-ink">Lounge</span>
+            <span className="block truncate text-[11.5px] text-muted">
               {activeTeams} active {activeTeams === 1 ? "team" : "teams"} · {working} at work
             </span>
           </span>
         </button>
-        <button onClick={pick(() => actions.set("view", "schedule"))} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-white ${s.view === "schedule" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
+        <button onClick={pick(() => actions.set("view", "schedule"))} className={`${card} flex items-center gap-4 px-5 py-5 text-left transition hover:bg-surface ${s.view === "schedule" ? "ring-1 ring-[#4f7cf5]/50" : ""}`}>
           <span className="text-[34px] leading-none">⏰</span>
           <span>
-            <span className="block text-[14.5px] font-semibold text-[#1d1f26]">Schedule room</span>
-            <span className="block text-[11.5px] text-[#7a7e89]">
+            <span className="block text-[14.5px] font-semibold text-ink">Schedule room</span>
+            <span className="block text-[11.5px] text-muted">
               {runningSchedules} running · {s.schedules.length} total
             </span>
           </span>
         </button>
       </div>
 
-      <div className="mt-9 flex items-center justify-between text-[12px] font-medium tracking-wider text-[#5d6170]">
+      <div className="mt-9 flex items-center justify-between text-[12px] font-medium tracking-wider text-muted">
         <span>ROOM LIST</span>
-        <span className="font-normal text-[#9a9ea8]">
+        <span className="font-normal text-muted">
           {activeIdx} / {rooms.length}
         </span>
       </div>
 
-      <button onClick={pick(onTopics)} className="mt-4 min-h-11 rounded-xl border border-[#b9c8e8] bg-white px-3 text-[13px] font-medium" aria-label="Select topics">☑ Select topics</button>
-      <button onClick={pick(onNewRoom)} className="mt-4 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#9fb4ee] bg-white/40 py-2.5 text-[14.5px] text-[#2a2d36] transition hover:bg-white/80">
+      <button onClick={pick(onTopics)} className="mt-4 min-h-11 rounded-xl border border-accent-line bg-surface px-3 text-[13px] font-medium" aria-label="Select topics">☑ Select topics</button>
+      <button onClick={pick(onNewRoom)} className="mt-4 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-accent-line bg-surface/40 py-2.5 text-[14.5px] text-ink transition hover:bg-surface/80">
         <Plus /> New chat room
       </button>
 
@@ -143,14 +143,14 @@ export function RoomPanel({
               tabIndex={0}
               onClick={pick(() => actions.selectRoom(r.id))}
               onKeyDown={(e) => e.key === "Enter" && actions.selectRoom(r.id)}
-              className={`${card} relative flex cursor-pointer items-center gap-4 px-5 py-5 transition hover:bg-white ${active ? "!border-[#a9bdf6] bg-white ring-1 ring-[#4f7cf5]/30" : ""}`}
+              className={`${card} relative flex cursor-pointer items-center gap-4 px-5 py-5 transition hover:bg-surface ${active ? "!border-accent-line bg-surface ring-1 ring-[#4f7cf5]/30" : ""}`}
             >
               {alert && !active && <span className="absolute left-2 top-2 h-3 w-3 rounded-full bg-[#ea2b2b]" />}
               <span className="text-[30px] leading-none">{r.emoji}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14.5px] font-semibold text-[#1d1f26]">{r.name}</span>
-                {r.telegram && <span className="mt-1 block truncate text-[11.5px] text-[#5d6170]">{r.preview || "No messages yet"}</span>}
-                <span className="mt-1 block text-[10.5px] text-[#7a7e89]">
+                <span className="block truncate text-[14.5px] font-semibold text-ink">{r.name}</span>
+                {r.telegram && <span className="mt-1 block truncate text-[11.5px] text-muted">{r.preview || "No messages yet"}</span>}
+                <span className="mt-1 block text-[10.5px] text-muted">
                   {r.telegram ? "Telegram topic" : `${r.agents.length} agents`}{r.telegram ? ` · ${r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleString("en-US", {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : ""}` : ` · ${r.outputs.length} outputs`}
                 </span>
               </span>

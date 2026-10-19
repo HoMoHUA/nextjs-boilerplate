@@ -12,5 +12,5 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // everything except the login flow, the health check and static assets
-  matcher: ["/((?!login|api/login|api/health|_next/static|_next/image|favicon.ico|icon[.]svg|arklyn-logo[.]svg|robots.txt).*)"],
+  matcher: ["/((?!login|api/login|api/health|_next/static|_next/image|favicon.ico|icon[.]svg|arklyn-logo[.]svg|robots.txt|manifest[.]webmanifest$|sw[.]js$|icons/).*)"],
 };

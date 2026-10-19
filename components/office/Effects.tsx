@@ -15,12 +15,12 @@ const RING: Record<AgentStatus, string | null> = {
 };
 
 /** Soft glowing ring on the floor under an agent, colored by status. */
-export function StatusRing({ status, selected }: { status: AgentStatus; selected: boolean }) {
+export function StatusRing({ status, selected, selectedColor = "#16171d", reducedMotion = false }: { status: AgentStatus; selected: boolean; selectedColor?: string; reducedMotion?: boolean }) {
   const mat = useRef<MeshBasicMaterial>(null);
-  const color = RING[status] ?? (selected ? "#16171d" : null);
+  const color = RING[status] ?? (selected ? selectedColor : null);
   useFrame(({ clock }) => {
     if (!mat.current) return;
-    const pulse = status === "working" || status === "needs_you" ? 0.35 + Math.sin(clock.elapsedTime * 4) * 0.15 : 0.3;
+    const pulse = !reducedMotion && (status === "working" || status === "needs_you") ? 0.35 + Math.sin(clock.elapsedTime * 4) * 0.15 : 0.3;
     mat.current.opacity = pulse;
   });
   if (!color) return null;
