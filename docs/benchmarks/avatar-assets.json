@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "source": "GLTFLoader static census of local authored studio assets",
+  "limitations": [
+    "No frame time, draw calls, GPU memory, loading time or real-device measurements.",
+    "Visible totals exclude environment, preview, shadow and effect passes.",
+    "Counts mirror current Character.tsx, including its legacy hairstyle-dependent sleeves/headphones."
+  ],
+  "totalAssetBytes": 2156156,
+  "assets": [
+    {
+      "path": "public/models/studio/characters.glb",
+      "bytes": 1049360,
+      "sha256": "b4e93e2177250457d79e3e3b1ad4531c6f0493af97979aa0bfbdd96824ad247d",
+      "meshes": 45,
+      "uniqueGeometries": 45,
+      "storedTriangles": 31370
+    },
+    {
+      "path": "public/models/studio/furniture-chair.glb",
+      "bytes": 278460,
+      "sha256": "a412c749222e11b507e4e5d131890e3a1884fb33ede0668985d0ccc188eb844c",
+      "meshes": 6,
+      "uniqueGeometries": 6,
+      "storedTriangles": 8986
+    },
+    {
+      "path": "public/models/studio/furniture-executive-chair.glb",
+      "bytes": 278500,
+      "sha256": "a81c6569f12e498453024ee024854f5b355d781b6572f7e3ccc02e2f20838806",
+      "meshes": 6,
+      "uniqueGeometries": 6,
+      "storedTriangles": 8986
+    },
+    {
+      "path": "public/models/studio/furniture-espresso.glb",
+      "bytes": 150108,
+      "sha256": "8343d23f4d0f7a7227bcfbfc1dcd6c7054edc989f5bc5f25831050de6395c7e2",
+      "meshes": 7,
+      "uniqueGeometries": 7,
+      "storedTriangles": 4060
+    },
+    {
+      "path": "public/models/studio/furniture-lounge.glb",
+      "bytes": 114856,
+      "sha256": "8ba58340601b2ff1582c4a8da5c124cba3e94a5ff16984818b4bbee6a5411c8b",
+      "meshes": 4,
+      "uniqueGeometries": 4,
+      "storedTriangles": 3864
+    },
+    {
+      "path": "public/models/studio/furniture-mug.glb",
+      "bytes": 74780,
+      "sha256": "0f307cd16676911535ede587df5eba8cb70ab9a199ad6f59a03df28872c15b39",
+      "meshes": 3,
+      "uniqueGeometries": 3,
+      "storedTriangles": 2440
+    },
+    {
+      "path": "public/models/studio/furniture-plant.glb",
+      "bytes": 210092,
+      "sha256": "169a9a22e8cfc06b670b59b7245638134bbc1b4189aa4d2a898dc6cb9a4eb9fc",
+      "meshes": 7,
+      "uniqueGeometries": 7,
+      "storedTriangles": 5972
+    }
+  ],
+  "characterVariants": [
+    {
+      "hair": "short",
+      "glasses": false,
+      "triangles": 19302,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "short",
+      "glasses": true,
+      "triangles": 20218,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "curly",
+      "glasses": false,
+      "triangles": 19330,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "curly",
+      "glasses": true,
+      "triangles": 20246,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "fluffy",
+      "glasses": false,
+      "triangles": 19254,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "fluffy",
+      "glasses": true,
+      "triangles": 20170,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "bun",
+      "glasses": false,
+      "triangles": 19722,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "bun",
+      "glasses": true,
+      "triangles": 20638,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "bob",
+      "glasses": false,
+      "triangles": 20136,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "bob",
+      "glasses": true,
+      "triangles": 21052,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "buzz",
+      "glasses": false,
+      "triangles": 20332,
+      "exceedsProvisionalHigh": true
+    },
+    {
+      "hair": "buzz",
+      "glasses": true,
+      "triangles": 21248,
+      "exceedsProvisionalHigh": true
+    }
+  ],
+  "visibleCharacterGeometry": [
+    {
+      "characters": 1,
+      "minimumTriangles": 19254,
+      "maximumTriangles": 21248
+    },
+    {
+      "characters": 6,
+      "minimumTriangles": 115524,
+      "maximumTriangles": 127488
+    },
+    {
+      "characters": 12,
+      "minimumTriangles": 231048,
+      "maximumTriangles": 254976
+    }
+  ],
+  "provisionalTargetsPerCharacter": {
+    "low": 3000,
+    "medium": 7000,
+    "high": 12000
+  },
+  "conclusion": "Current characters exceed the provisional High geometry target. P6 LOD/profiling and real-device acceptance remain required."
+}
