@@ -1,0 +1,11 @@
+{
+  "checks": [
+    {
+      "pose": "press",
+      "build": "average",
+      "pageErrors": []
+    }
+  ],
+  "browser": "154.0.8037.57",
+  "limitation": "Authored-pose close-up fixture; not proof of live backend work, real-device FPS or acceptance of every appearance combination."
+}

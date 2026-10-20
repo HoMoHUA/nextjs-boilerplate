@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "Appearance Preview/Cancel, invalid HEX rejection, independent hair/outfit/beard/glasses/desk prop and Save persistence",
+    "Manual Low quality persists and mobile 390\u00d7844 fits without horizontal overflow",
+    "Saved appearance survives reload",
+    "Actual WEBGL_lose_context enters accessible fallback; Retry restores selectable characters"
+  ],
+  "pageErrors": [
+    "Studio WebGL context lost"
+  ],
+  "apiRequests": 115,
+  "browser": "154.0.8037.57",
+  "limitation": "Headless SwiftShader functional checks; screenshots need visual review, no physical-device FPS/install acceptance."
+}

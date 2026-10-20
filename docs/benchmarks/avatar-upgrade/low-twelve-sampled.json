@@ -1,0 +1,368 @@
+{
+  "checks": [
+    {
+      "characters": 12,
+      "quality": "low",
+      "viewport": [
+        390,
+        844
+      ],
+      "motion": "reduced, static poses",
+      "pageErrors": [],
+      "consoleErrors": [],
+      "rendererSampleWindow": {
+        "seconds": 60.00401382599375,
+        "samples": [
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          },
+          {
+            "renderCalls": 121,
+            "renderTriangles": 398538,
+            "renderGeometries": 132,
+            "renderTextures": 49
+          }
+        ],
+        "callsMedian": 121,
+        "callsP95": 121,
+        "callsMax": 121,
+        "method": "Latest renderer counters sampled about once per second; counters refresh every three seconds. These are draw-call samples, not frame-time/FPS percentiles."
+      },
+      "rendererCounters": {
+        "sceneMode": "dark",
+        "sceneQuality": "low",
+        "scenePaused": "false",
+        "meetingPhase": "idle",
+        "coffeePhase": "idle",
+        "coffeeOwner": "",
+        "renderCalls": "121",
+        "renderTriangles": "398538",
+        "renderGeometries": "132",
+        "renderTextures": "49"
+      }
+    }
+  ],
+  "browser": "154.0.8037.57",
+  "limitation": "Static SwiftShader matrix only; no physical-device FPS or meeting check in this filtered run"
+}

@@ -1,0 +1,77 @@
+{
+  "checks": [
+    {
+      "characters": 1,
+      "quality": "high",
+      "viewport": [
+        1440,
+        1000
+      ],
+      "motion": "reduced, static poses",
+      "pageErrors": [],
+      "rendererCounters": {
+        "sceneMode": "dark",
+        "sceneQuality": "high",
+        "scenePaused": "false",
+        "meetingPhase": "idle",
+        "coffeePhase": "idle",
+        "coffeeOwner": "",
+        "renderCalls": "590",
+        "renderTriangles": "1328117",
+        "renderGeometries": "150",
+        "renderTextures": "28"
+      }
+    },
+    {
+      "characters": 6,
+      "quality": "medium",
+      "viewport": [
+        1440,
+        1000
+      ],
+      "motion": "reduced, static poses",
+      "pageErrors": [],
+      "rendererCounters": {
+        "sceneMode": "dark",
+        "sceneQuality": "medium",
+        "scenePaused": "false",
+        "meetingPhase": "idle",
+        "coffeePhase": "idle",
+        "coffeeOwner": "",
+        "renderCalls": "707",
+        "renderTriangles": "749360",
+        "renderGeometries": "164",
+        "renderTextures": "25"
+      }
+    },
+    {
+      "characters": 12,
+      "quality": "low",
+      "viewport": [
+        390,
+        844
+      ],
+      "motion": "reduced, static poses",
+      "pageErrors": [],
+      "rendererCounters": {
+        "sceneMode": "dark",
+        "sceneQuality": "low",
+        "scenePaused": "false",
+        "meetingPhase": "idle",
+        "coffeePhase": "idle",
+        "coffeeOwner": "",
+        "renderCalls": "638",
+        "renderTriangles": "393824",
+        "renderGeometries": "164",
+        "renderTextures": "25"
+      }
+    },
+    {
+      "meeting": "frontend consumes explicit mocked stream; duplicate event stored once",
+      "producer": "local mock only with frozen wall clock; live broker producer still required",
+      "pageErrors": []
+    }
+  ],
+  "browser": "154.0.8037.57",
+  "limitation": "Functional/static SwiftShader matrix, not mobile GPU/FPS or live meeting producer evidence"
+}

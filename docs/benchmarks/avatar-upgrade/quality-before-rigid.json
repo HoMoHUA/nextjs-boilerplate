@@ -1,0 +1,56 @@
+{
+  "samples": [
+    {
+      "sceneQuality": "low",
+      "renderCalls": "232",
+      "renderTriangles": "343551",
+      "renderGeometries": "148",
+      "renderTextures": "18"
+    },
+    {
+      "sceneQuality": "medium",
+      "renderCalls": "421",
+      "renderTriangles": "657324",
+      "renderGeometries": "181",
+      "renderTextures": "20"
+    },
+    {
+      "sceneQuality": "high",
+      "renderCalls": "530",
+      "renderTriangles": "1327997",
+      "renderGeometries": "215",
+      "renderTextures": "28"
+    },
+    {
+      "sceneQuality": "low",
+      "renderCalls": "222",
+      "renderTriangles": "343531",
+      "renderGeometries": "214",
+      "renderTextures": "20"
+    },
+    {
+      "sceneQuality": "medium",
+      "renderCalls": "281",
+      "renderTriangles": "657044",
+      "renderGeometries": "214",
+      "renderTextures": "20"
+    },
+    {
+      "sceneQuality": "high",
+      "renderCalls": "590",
+      "renderTriangles": "1328117",
+      "renderGeometries": "215",
+      "renderTextures": "28"
+    },
+    {
+      "sceneQuality": "low",
+      "renderCalls": "272",
+      "renderTriangles": "343631",
+      "renderGeometries": "214",
+      "renderTextures": "20"
+    }
+  ],
+  "pageErrors": [],
+  "browser": "154.0.8037.57",
+  "scope": "One reduced-motion character, 900x700, two visits per LOD plus final Low; bounded object counts after cache warmup. Not a long-duration leak test, GPU byte measurement or physical-device FPS."
+}

@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-20",
+  "timezone": "Asia/Tehran",
+  "runtimeSourceCommit": "9b7c92b418fc2d8d74275bc48d3a6d48f5482725",
+  "branch": "codex/office-studio-upgrade",
+  "baseOfficeCommit": "b59c04687ecc0e9961d30c143ddf76b2e091810d",
+  "releaseStatus": "source published; website deployment waiting for server connection and network access",
+  "checks": {
+    "frontendSuites": 20,
+    "assetContracts": 3,
+    "lint": "pass",
+    "typecheck": "pass",
+    "productionBuild": "pass",
+    "browser": "Chromium 154.0.8037.57 / SwiftShader",
+    "lowTwelve": {
+      "seconds": 60.00401382599375,
+      "callsMedian": 121,
+      "callsP95": 121,
+      "callsMax": 121,
+      "method": "Latest renderer counters sampled about once per second; counters refresh every three seconds. These are draw-call samples, not frame-time/FPS percentiles."
+    },
+    "qualityLifecycle": "bounded object counts after three-LOD warmup; one actor and two rounds, not a long-duration leak guarantee",
+    "editorRecovery": "Save/Cancel/invalid HEX/reload/mobile and actual WebGL context loss + Retry pass; one expected injected context-loss error",
+    "meeting": "explicit local mocked stream, deduplication and discussion after arrival; no real model requests",
+    "coffee": "authored close-up press/sip and three body proportions; Low final cap visually inspected",
+    "releaseCandidateSmoke": "fresh final immutable bundle passes public health/manifest/icon/models, default preview404 and temporary authentication307/401; no real backend calls"
+  },
+  "limitations": [
+    "Current live broker has no planning_meeting producer; automatic live meetings are not enabled by the consumer alone.",
+    "Physical Android/iOS install, GPU bytes, median/p95 frame times, long-duration resource churn and High/Medium performance acceptance remain open.",
+    "Complete visual acceptance of all face/hair/outfit/accessory combinations and finger/seat/pen/corner-foot contacts remains open.",
+    "Low12 reports renderer counters in one static reduced-motion fixture, not hardware FPS or a global draw-call ceiling.",
+    "Backend unchanged. Earlier backend baseline recorded test_sse_exercises_real_child_without_real_claude_prompt failing on /root/.claude/agents permissions and missing permissionMode; no live-model verification was run."
+  ],
+  "deploymentBlockers": [
+    "No SSH configuration/identity, deployment account or server checkout in this cloud environment.",
+    "HTTPS probe to office.arklyn.ir failed at the network tunnel with 403, including an escalated read-only probe.",
+    "GitHub Actions API probe was forbidden; no .github/workflows exists in this checkout."
+  ],
+  "hashes": {
+    "public/models/studio/characters-high.glb": "986b008786582f97d15380c15c389657b05da267c372a01a7aaea0a957ef8acd",
+    "public/models/studio/characters-low.glb": "141a999d152a93630bfd40f2b515bc38aa5e95b149b14ca92ff63b8539d1f6c1",
+    "public/models/studio/characters-medium.glb": "f8c225fc88bf9a44573da421556daf5a55a7bcb09a856b2f60e43e4f98486dc2",
+    "public/models/studio/characters-v1.glb": "b4e93e2177250457d79e3e3b1ad4531c6f0493af97979aa0bfbdd96824ad247d",
+    "public/models/studio/characters.glb": "4dbb88b39eab2559997b98f41189cd50b014417417c25c53e4eacc01e00f37c1"
+  },
+  "environmentDraft": "start instructions and office.arklyn.ir allowlist saved for review; not applied/published"
+}

@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "9b7c92b",
+  "checks": [
+    {
+      "temporaryAuthGate": false,
+      "statuses": {
+        "/api/health": 200,
+        "/manifest.webmanifest": 200,
+        "/icon.svg": 200,
+        "/studio-preview": 404,
+        "/": 200,
+        "/models/studio/characters-low.glb": 200
+      }
+    },
+    {
+      "temporaryAuthGate": true,
+      "statuses": {
+        "/api/health": 200,
+        "/manifest.webmanifest": 200,
+        "/icon.svg": 200,
+        "/studio-preview": 307,
+        "/": 307,
+        "/api/integrations": 401
+      }
+    }
+  ],
+  "scope": "Fresh immutable release candidate, generated temporary auth credentials, no real backend/model requests; not website deployment."
+}

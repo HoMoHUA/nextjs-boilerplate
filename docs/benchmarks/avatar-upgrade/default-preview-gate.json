@@ -1,0 +1,17 @@
+{
+  "/api/health": {
+    "status": 200,
+    "bytes": 99
+  },
+  "/models/studio/characters-high.glb": {
+    "status": 200,
+    "bytes": 1018816
+  },
+  "/manifest.webmanifest": {
+    "status": 200,
+    "bytes": 546
+  },
+  "/studio-preview": {
+    "status": 404
+  }
+}

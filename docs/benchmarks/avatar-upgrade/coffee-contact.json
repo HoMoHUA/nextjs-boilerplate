@@ -1,0 +1,21 @@
+{
+  "checks": [
+    {
+      "pose": "sip",
+      "build": "average",
+      "pageErrors": []
+    },
+    {
+      "pose": "sip",
+      "build": "compact",
+      "pageErrors": []
+    },
+    {
+      "pose": "sip",
+      "build": "tall",
+      "pageErrors": []
+    }
+  ],
+  "browser": "154.0.8037.57",
+  "limitation": "Authored-pose close-up fixture; not proof of live backend work, real-device FPS or acceptance of every appearance combination."
+}
