@@ -30,7 +30,9 @@ export class MeetingDirector {
   step(dt:number,meeting:PlanningMeeting|undefined,agents:{id:string;spot:Spot;working:boolean}[],now:number,enabled:boolean):Map<string,MeetingActorSample>{
     const out=new Map<string,MeetingActorSample>();if(!enabled)return out;
     this.time+=Math.min(.25,Math.max(0,dt));
-    if(meeting?.id!==this.id&&meeting?.status==='active'&&meeting.expiresAt>now&&now-meeting.startedAt<30000){
+    // Stream ingestion already checks freshness. A valid replacement may wait
+    // for old participants to walk home; never discard those active journeys.
+    if(!this.inProgress&&meeting?.id!==this.id&&meeting?.status==='active'&&meeting.expiresAt>now){
       const free=SPOTS.slice(8).filter(seat=>!agents.some(a=>a.spot===seat&&!meeting.participants.includes(a.id)));
       if(free.length<meeting.participants.length)return out;
       const journeys:Journey[]=[],assigned=new Map<string,Spot>();

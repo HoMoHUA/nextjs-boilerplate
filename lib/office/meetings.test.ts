@@ -33,3 +33,23 @@ const seatedDirector=new MeetingDirector(),atTable=[{id:'here',spot:SPOTS[8],wor
 const existing=seatedDirector.step(.05,{id:'already-here',participants:['here','join'],startedAt:now,expiresAt:now+120000,status:'active'},atTable,now,true);
 assert.equal(existing.get('here')?.seated,true);assert.equal(existing.get('here')?.walking,false);
 console.log('PASS no speech to empty seats, occupied-chair rejection and already-seated participant preservation');
+
+for (const finish of ['ended','expired'] as const) {
+ const d=new MeetingDirector();
+ const first={id:'A',participants:agents.slice(0,2).map(a=>a.id),startedAt:now,expiresAt:now+120000,status:'active' as const};
+ for(let i=0;i<4000&&d.phase!=='discussing';i++)d.step(.05,first,agents,now,true);
+ assert.equal(d.phase,'discussing');
+ const ended={...first,status:finish==='ended'?'ended' as const:'active' as const,expiresAt:finish==='expired'?now:first.expiresAt};
+ d.step(.05,ended,agents,now,true);
+ const second={...first,id:'B',startedAt:now+50,expiresAt:now+180000};
+ const before=d.journeys;
+ const samples=d.step(.05,second,agents,now+50,true);
+ assert.equal(d.id,'A',`${finish}: preserve the returning meeting`);
+ assert.equal(d.journeys,before,`${finish}: do not replace returning journeys`);
+ assert.equal(samples.size,2,`${finish}: returning participants retain positions`);
+ // A delayed replacement remains valid after the stream's freshness window:
+ // freshness was checked at ingestion, not when chairs finally become free.
+ for(let i=0;i<6000&&String(d.id)!=='B';i++)d.step(.05,second,agents,now+40000,true);
+ assert.equal(d.id,'B',`${finish}: deferred meeting starts after participants return`);
+}
+console.log('PASS ended/expired meeting replacements wait for all return journeys');

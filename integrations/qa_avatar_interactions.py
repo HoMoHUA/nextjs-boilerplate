@@ -7,7 +7,7 @@ from playwright.async_api import async_playwright
 from qa_studio import fixture
 
 async def main():
- p=argparse.ArgumentParser();p.add_argument('--base-url',default='http://127.0.0.1:3010');p.add_argument('--output',default='/workspace/artifacts/avatar-interactions');args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
+ p=argparse.ArgumentParser();p.add_argument('--base-url',default='http://127.0.0.1:3010');p.add_argument('--output',default='/workspace/artifacts/avatar-interactions');p.add_argument('--skip-coffee',action='store_true',help='Run editor/reload/context checks; use separate contact fixture for pose evidence');args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
  async with async_playwright() as pw:
   browser=await pw.chromium.launch(executable_path=shutil.which('chromium'),headless=True,args=['--no-sandbox','--remote-debugging-port=9320','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
   context=await browser.new_context(viewport={'width':1440,'height':1000},device_scale_factor=1)
@@ -46,28 +46,29 @@ async def main():
   await page.get_by_role('button',name='Close',exact=True).click()
   checks.append('Appearance Preview/Cancel, invalid HEX rejection, independent hair/outfit/beard/glasses/desk prop and Save persistence')
   print('Editor Save/Cancel and validation passed',flush=True)
-  # Watch a genuine full decorative cycle with the normal clock; never manufacture a processing event.
-  scene=page.locator('[data-scene-quality]')
-  async def hold_phase(phase):
-   await page.evaluate("""phase => new Promise((resolve,reject)=>{
-     let scheduled=false;
-     const timer=setTimeout(()=>{observer.disconnect();reject(new Error('Coffee phase timeout: '+phase));},600000);
-     const check=()=>{if(scheduled||document.querySelector('[data-coffee-phase]')?.dataset.coffeePhase!==phase)return;scheduled=true;observer.disconnect();let frames=0;function hold(){if(++frames<3){requestAnimationFrame(hold);return;}document.querySelector('button[aria-label="Pause scene animation"]').click();clearTimeout(timer);resolve(true);}requestAnimationFrame(hold);};
-     const observer=new MutationObserver(check);observer.observe(document.querySelector('[data-coffee-phase]'),{attributes:true,attributeFilter:['data-coffee-phase']});check();
-   })""",phase)
-   await page.locator('[data-scene-paused=true]').wait_for(state='visible')
-  await hold_phase('brew')
-  await page.screenshot(path=str(out/'coffee-brew.png'))
-  owner=await scene.get_attribute('data-coffee-owner');assert owner
-  await page.get_by_role('button',name='Resume scene animation',exact=True).click()
-  await hold_phase('sip')
-  await page.screenshot(path=str(out/'coffee-sip.png'))
-  await page.get_by_role('button',name='Resume scene animation',exact=True).click()
-  await hold_phase('return')
-  await page.screenshot(path=str(out/'coffee-return.png'))
-  await page.get_by_role('button',name='Resume scene animation',exact=True).click()
-  checks.append('Single reserved coffee visit reaches brew, sip and return in the normal scene clock, using Pause/Resume to capture each pose')
-  print('Coffee brew/sip/return captured',flush=True)
+  if not args.skip_coffee:
+   # Watch a genuine full decorative cycle with the normal clock; never manufacture a processing event.
+   scene=page.locator('[data-scene-quality]')
+   async def hold_phase(phase):
+    await page.evaluate("""phase => new Promise((resolve,reject)=>{
+      let scheduled=false;
+      const timer=setTimeout(()=>{observer.disconnect();reject(new Error('Coffee phase timeout: '+phase));},600000);
+      const check=()=>{if(scheduled||document.querySelector('[data-coffee-phase]')?.dataset.coffeePhase!==phase)return;scheduled=true;observer.disconnect();let frames=0;function hold(){if(++frames<3){requestAnimationFrame(hold);return;}document.querySelector('button[aria-label="Pause scene animation"]').click();clearTimeout(timer);resolve(true);}requestAnimationFrame(hold);};
+      const observer=new MutationObserver(check);observer.observe(document.querySelector('[data-coffee-phase]'),{attributes:true,attributeFilter:['data-coffee-phase']});check();
+    })""",phase)
+    await page.locator('[data-scene-paused=true]').wait_for(state='visible')
+   await hold_phase('brew')
+   await page.screenshot(path=str(out/'coffee-brew.png'))
+   owner=await scene.get_attribute('data-coffee-owner');assert owner
+   await page.get_by_role('button',name='Resume scene animation',exact=True).click()
+   await hold_phase('sip')
+   await page.screenshot(path=str(out/'coffee-sip.png'))
+   await page.get_by_role('button',name='Resume scene animation',exact=True).click()
+   await hold_phase('return')
+   await page.screenshot(path=str(out/'coffee-return.png'))
+   await page.get_by_role('button',name='Resume scene animation',exact=True).click()
+   checks.append('Single reserved coffee visit reaches brew, sip and return in the normal scene clock, using Pause/Resume to capture each pose')
+   print('Coffee brew/sip/return captured',flush=True)
   await page.get_by_role('button',name='Theme',exact=True).click()
   await page.get_by_label('Scene quality',exact=True).select_option('low')
   await page.get_by_role('button',name='Close',exact=True).click()

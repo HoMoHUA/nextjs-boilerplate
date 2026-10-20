@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
-import { Color, MeshPhysicalMaterial, Quaternion, Vector3, type Group, type Material, type Mesh, type MeshStandardMaterial } from "three";
+import { Color, Matrix4, MeshPhysicalMaterial, Quaternion, Vector3, type Group, type Material, type Mesh, type MeshStandardMaterial } from "three";
 import type { AgentLook, AgentStatus } from "@/lib/types";
 import { Mug } from "./Furniture";
 import { COFFEE_BUTTON, COFFEE_CUP } from "@/lib/office/navigation";
@@ -13,6 +13,7 @@ import { dampFactor, motionProfile, relativeGazeYaw, sampleMotion } from "@/lib/
 import type { AvatarAppearanceV2 } from "@/lib/avatar/types";
 import { LegacyCharacter } from "./LegacyCharacter";
 import { useStudioQuality } from "./StudioQuality";
+import { drinkingGrip, mugHandleOffset } from "@/lib/avatar/coffee-contact";
 import { footTarget, solveLeg } from "@/lib/avatar/locomotion";
 import type { IdleGesture } from "@/lib/office/idle";
 import { validateAppearance } from "@/lib/avatar/validate";
@@ -147,6 +148,11 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
   const elbows = useRef<Joint[]>([null, null]);
   const carriedCup = useRef<Group>(null);
   const pencil=useRef<Group>(null);
+  const cupTilt=useRef(0);
+  const cupRotation=useMemo(()=>new Quaternion(),[]);
+  const cupMatrix=useMemo(()=>new Matrix4(),[]);
+  const cupScale=useMemo(()=>new Vector3(.621,.621,.621),[]);
+  const tiltAxis=useMemo(()=>new Vector3(1,0,0),[]);
   const handTarget = useMemo(() => new Vector3(), []);
   const armDirection = useMemo(() => new Vector3(), []);
   const elbowPosition = useMemo(() => new Vector3(), []);
@@ -178,6 +184,7 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
     const t = elapsed.current + profile.phase;
     const m = motion.current;
     const k = dampFactor(8, dt);
+    cupTilt.current=approach(cupTilt.current,m.hand === "sip" ? .28 : 0,dampFactor(7,dt));
     const sample = sampleMotion(profile, elapsed.current, status === "working", reducedMotion);
     sit.current = reducedMotion ? (m.seated ? 1 : 0) : approach(sit.current, m.seated ? 1 : 0, dampFactor(5, dt));
     const seated = sit.current;
@@ -296,9 +303,13 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
       if(m.noteTarget)handTarget.fromArray(m.noteTarget).add(new Vector3(Math.sin(t*8)*.012,0,Math.sin(t*5)*.009));
       else if (m.hand === "button") handTarget.fromArray(COFFEE_BUTTON);
       else if (m.hand === "cup") handTarget.fromArray(COFFEE_CUP).add(new Vector3(.065,.07,0));
-      else if (root.current) {
-        handTarget.set(-.17,m.hand === "carry" ? 1.12 : 1.64,m.hand === "carry" ? .42 : .32);
-        root.current.localToWorld(handTarget);
+      else if (m.hand === "carry" && root.current) {
+        handTarget.set(-.17,1.12,.42);root.current.localToWorld(handTarget);
+      } else if(head.current && root.current) {
+        // Follow the actual lip socket through body height, head movement and torso lean.
+        handTarget.set(0,-.145,.185);head.current.localToWorld(handTarget);
+        root.current.getWorldDirection(forward);
+        handTarget.fromArray(drinkingGrip([handTarget.x,handTarget.y,handTarget.z],[forward.x,forward.y,forward.z],cupTilt.current));
       }
       torso.current.updateWorldMatrix(true,false);
       torso.current.worldToLocal(handTarget);
@@ -324,12 +335,14 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
       // Keep the open cup upright as the articulated wrist rotates.
       if (el) {
         handTarget.set(0,-.28,0);
-        el.localToWorld(handTarget).add(new Vector3(-.065,-.07,0));
-        el.worldToLocal(handTarget);
-        carriedCup.current.position.copy(handTarget);
+        const handle=mugHandleOffset(cupTilt.current);
+        el.localToWorld(handTarget).sub(new Vector3(...handle));
+        cupRotation.setFromAxisAngle(tiltAxis,cupTilt.current);
+        cupMatrix.compose(handTarget,cupRotation,cupScale);
+        // Exact inverse-parent attachment keeps the cup rigid across nonuniform body proportions.
+        carriedCup.current.matrix.copy(el.matrixWorld).invert().multiply(cupMatrix);
+        carriedCup.current.matrixWorldNeedsUpdate=true;
       }
-      carriedCup.current.parent?.getWorldQuaternion(rotation);
-      carriedCup.current.quaternion.copy(rotation.invert());
     }
   });
 
@@ -375,7 +388,7 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
                 {appearance?.accessories.watch && i === 1 && part("watch")}
                 <group scale={[s, 1, 1]}>{part("hand")}</group>
                 {i === 1 && <group ref={pencil} visible={false} position={[0,-.28,0]}>{part("pen")}</group>}
-                {i === 1 && <group ref={carriedCup} visible={false} position={[-.048,-.33,.015]} scale={.46}><Mug position={[0,0,0]} /></group>}
+                {i === 1 && <group ref={carriedCup} matrixAutoUpdate={false} visible={false} position={[-.048,-.33,.015]} scale={.46}><Mug position={[0,0,0]} /></group>}
               </group>
             </group>
           ))}

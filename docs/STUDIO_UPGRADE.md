@@ -5,6 +5,8 @@ This branch implements an interactive WebGL studio based on that direction.
 The concept is an offline illustration: the current authored faces, hairstyles,
 clothing, lighting and furniture are an approximation, not an identical recreation.
 
+Latest continuation: [appearance editor, LODs, interactions and remaining acceptance gates](AVATAR_CONTINUATION.fa.md). The six-style measurements below describe the original studio checkpoint.
+
 ## What changed
 
 - Authored GLB character parts replace clustered spheres and capsule bodies.

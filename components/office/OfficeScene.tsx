@@ -310,7 +310,7 @@ function AgentActor({ agent, spot, reducedMotion, paused, selectedColor, selecte
       seated = visit.seated; walking = visit.walking; talking = false;
       m.hand = visit.hand;
       m.carrying = visit.carrying;
-      m.station = !visit.walking && !visit.seated && visit.phase !== "stand";
+      m.station = !visit.walking && !visit.seated && visit.phase !== "stand" && visit.phase !== "sip";
     } else m.station = false;
     const meeting = reducedMotion ? null : meetingRef.current.get(agent.id);
     if(meeting){x=meeting.x;z=meeting.z;facing=meeting.heading;walking=meeting.walking;seated=meeting.seated;talking=meeting.talking;m.hand=undefined;m.carrying=false;m.station=false;m.idleGesture=undefined;m.noteTarget=meeting.noteTarget;}
