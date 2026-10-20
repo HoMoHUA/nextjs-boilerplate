@@ -26,6 +26,7 @@ async def main():
   await page.goto(args.base_url,wait_until='domcontentloaded');await page.locator('button[title="Ari"]').wait_for(state='visible',timeout=180000)
   checks=[]
   print('Rendered authored LOD scene',flush=True)
+  if args.skip_coffee:await page.get_by_role('button',name='Pause scene animation',exact=True).click()
   await page.get_by_role('button',name='Theme',exact=True).click()
   await page.get_by_role('button',name='Customize character',exact=True).click()
   dialog=page.get_by_role('dialog',name='Character appearance')

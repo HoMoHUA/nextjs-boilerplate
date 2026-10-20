@@ -10,7 +10,8 @@ export const DESKS: Spot[] = [[-4.6,.4],[-1.6,.4],[1.3,.4],[-1.6,-3.8],[1.3,-3.8
 export const SPOTS = [...DESKS, ...[.8,-.8,2.35,-2.35].map(meetingSeat)];
 export const COFFEE_STAND: XZ = [5.75,-4.5];
 export const COFFEE_CUP: [number,number,number] = [5.74,1.125,-5.07];
-export const COFFEE_BUTTON: [number,number,number] = [5.882,1.372,-5.068];
+// Front surface of the authored brew button's amber center, not the control dial.
+export const COFFEE_BUTTON: [number,number,number] = [5.787,1.376,-5.144];
 export const BODY_RADIUS = .34;
 type Rect = { x: number; z: number; hx: number; hz: number };
 const obstacles: Rect[] = [

@@ -351,22 +351,38 @@ loft("forearm_sleeve",[(.024,.062,.063,0),(-.015,.065,.065,0),(-.055,.065,.063,0
 loft("forearm_bare",[(.020,.058,.058,0),(-.02,.059,.059,0),(-.07,.054,.055,0),(-.13,.045,.046,0),(-.20,.034,.036,0),(-.236,.032,.034,0)],"skin",24)
 loft("cuff",[(-.204,.049,.048,0),(-.208,.052,.051,0),(-.234,.052,.050,0),(-.239,.047,.046,0)],"shirt_shadow",24)
 
-hand_parts=[loft("palm",[(-.222,.030,.030,0),(-.244,.038,.030,.001),(-.273,.041,.026,.006),(-.295,.038,.024,.008),(-.305,.029,.020,.010)],"skin",20)]
-for i in range(4):
-    x=-.026+i*.018
-    length=[.050,.062,.057,.044][i]
-    pts=[(x,-.286,.011),(x,-.308,.015),(x,-.308-length*.5,.021),(x+.002,-.308-length,.028)]
-    hand_parts.append(tube("finger",pts,[.010,.009,.008,.0045],"skin",8))
-hand_parts.append(tube("thumb",[(-.027,-.250,.012),(-.048,-.266,.018),(-.056,-.284,.029),(-.055,-.295,.041)],[.017,.014,.010,.006],"skin",10))
-hand=merge("hand",hand_parts)
-# Voxel union creates an actual continuous palm/finger web, rather than floating
-# primitive fingers. Smooth only enough to retain the knuckles and finger gaps.
-mod=hand.modifiers.new("Continuous hand","REMESH");mod.mode="VOXEL";mod.voxel_size=.0035;mod.use_smooth_shade=True
-bpy.context.view_layer.objects.active=hand;bpy.ops.object.modifier_apply(modifier=mod.name)
-mod=hand.modifiers.new("Natural palm","SMOOTH");mod.factor=.7;mod.iterations=3
-bpy.ops.object.modifier_apply(modifier=mod.name)
-mod=hand.modifiers.new("Hand economy","DECIMATE");mod.ratio=.13
-bpy.ops.object.modifier_apply(modifier=mod.name)
+# The relaxed hand is retained for idle/typing. Interaction hands share the
+# elbow origin and continuous wrist, but have authored curled fingers rather
+# than letting a straight fingertip penetrate the face or espresso machine.
+def build_hand(name, pose):
+    parts=[loft("palm",[(-.222,.030,.030,0),(-.244,.038,.030,.001),(-.273,.041,.026,.006),(-.295,.038,.024,.008),(-.305,.029,.020,.010)],"skin",20)]
+    for i in range(4):
+        x=-.026+i*.018
+        if pose=="rest" or (pose=="point" and i==0):
+            length=.062 if pose=="point" else [.050,.062,.057,.044][i]
+            pts=[(x,-.286,.011),(x,-.308,.015),(x,-.308-length*.5,.021),(x+.002,-.308-length,.028)]
+            if pose=="point":
+                # The named reach axis passes through the actual index tip.
+                pts=[(x,-.286,.011),(x*.5,-.308,.008),(0,-.340,.003),(0,-.370,0)]
+            radii=[.010,.009,.008,.0045]
+        else:
+            # Knuckle, first bend, fingertip curling around the handle/pen.
+            pts=[(x,-.283,.012),(x,-.312,.025),(x,-.315,.050),(x,-.294,.060),(x,-.280,.046)]
+            radii=[.010,.010,.009,.007,.0045]
+        parts.append(tube("finger",pts,radii,"skin",8))
+    thumb=[(-.027,-.250,.012),(-.048,-.266,.018),(-.056,-.284,.029),(-.055,-.295,.041)] if pose=="rest" else [(-.027,-.250,.012),(-.047,-.269,.032),(-.037,-.285,.055),(-.016,-.287,.060)]
+    parts.append(tube("thumb",thumb,[.017,.014,.010,.006],"skin",10))
+    hand=merge(name,parts)
+    mod=hand.modifiers.new("Continuous hand","REMESH");mod.mode="VOXEL";mod.voxel_size=.0035;mod.use_smooth_shade=True
+    bpy.context.view_layer.objects.active=hand;bpy.ops.object.modifier_apply(modifier=mod.name)
+    mod=hand.modifiers.new("Natural palm","SMOOTH");mod.factor=.7;mod.iterations=3
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    mod=hand.modifiers.new("Hand economy","DECIMATE");mod.ratio=.13
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    return hand
+build_hand("hand","rest")
+build_hand("hand_grip","grip")
+build_hand("hand_point","point")
 
 # Shoes are horizontal lofts with a raised heel, tapered toe, welt and sole.
 def shoe_section(name, sole=False):

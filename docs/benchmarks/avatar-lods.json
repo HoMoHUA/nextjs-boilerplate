@@ -3,25 +3,25 @@
   "levels": [
     {
       "level": "low",
-      "bytes": 342548,
-      "parts": 49,
-      "worstCaseTriangles": 2268,
+      "bytes": 356128,
+      "parts": 51,
+      "worstCaseTriangles": 2278,
       "budget": 3000,
       "withinBudget": true
     },
     {
       "level": "medium",
-      "bytes": 667748,
-      "parts": 49,
-      "worstCaseTriangles": 5913,
+      "bytes": 694200,
+      "parts": 51,
+      "worstCaseTriangles": 5941,
       "budget": 7000,
       "withinBudget": true
     },
     {
       "level": "high",
-      "bytes": 1018816,
-      "parts": 49,
-      "worstCaseTriangles": 10160,
+      "bytes": 1058360,
+      "parts": 51,
+      "worstCaseTriangles": 10208,
       "budget": 12000,
       "withinBudget": true
     }

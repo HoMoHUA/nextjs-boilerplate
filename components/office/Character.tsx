@@ -148,6 +148,7 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
   const elbows = useRef<Joint[]>([null, null]);
   const carriedCup = useRef<Group>(null);
   const pencil=useRef<Group>(null);
+  const relaxedHand=useRef<Group>(null),grippingHand=useRef<Group>(null),pointingHand=useRef<Group>(null);
   const cupTilt=useRef(0);
   const cupRotation=useMemo(()=>new Quaternion(),[]);
   const cupMatrix=useMemo(()=>new Matrix4(),[]);
@@ -183,6 +184,10 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
     elapsed.current += Math.max(0, Math.min(.05, dt));
     const t = elapsed.current + profile.phase;
     const m = motion.current;
+    const pointing=m.hand==='button',gripping=!!m.carrying||m.hand==='cup'||!!m.noteTarget;
+    if(relaxedHand.current)relaxedHand.current.visible=!pointing&&!gripping;
+    if(grippingHand.current)grippingHand.current.visible=!pointing&&gripping;
+    if(pointingHand.current)pointingHand.current.visible=pointing;
     const k = dampFactor(8, dt);
     cupTilt.current=approach(cupTilt.current,m.hand === "sip" ? .28 : 0,dampFactor(7,dt));
     const sample = sampleMotion(profile, elapsed.current, status === "working", reducedMotion);
@@ -314,14 +319,16 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
       torso.current.updateWorldMatrix(true,false);
       torso.current.worldToLocal(handTarget);
       handTarget.sub(sh.position);
-      const distance = Math.min(.535, Math.max(.04,handTarget.length()));
+      // Press with the extended index tip; carrying uses the handle socket.
+      const upper=.26, lower=m.hand==='button'?.37:.28,maxReach=upper+lower-.005;
+      const distance = Math.min(maxReach, Math.max(.04,handTarget.length()));
       armDirection.copy(handTarget).normalize();
-      const upper=.26, lower=.28, a=(upper*upper-lower*lower+distance*distance)/(2*distance);
+      const a=(upper*upper-lower*lower+distance*distance)/(2*distance);
       bend.set(-1,0,0).addScaledVector(armDirection,-armDirection.x * -1).normalize();
       elbowPosition.copy(armDirection).multiplyScalar(a).addScaledVector(bend,Math.sqrt(Math.max(0,upper*upper-a*a)));
       rotation.setFromUnitVectors(down, elbowPosition.clone().normalize());
       sh.quaternion.slerp(rotation,dampFactor(14,dt));
-      armDirection.copy(handTarget).clampLength(.04,.535).sub(elbowPosition).normalize();
+      armDirection.copy(handTarget).clampLength(.04,maxReach).sub(elbowPosition).normalize();
       armDirection.applyQuaternion(rotation.invert());
       rotation.setFromUnitVectors(down,armDirection);
       el.quaternion.slerp(rotation,dampFactor(14,dt));
@@ -386,7 +393,11 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
                 {part(shortSleeves ? "forearm_bare" : "forearm_sleeve")}
                 {!shortSleeves && part("cuff")}
                 {appearance?.accessories.watch && i === 1 && part("watch")}
-                <group scale={[s, 1, 1]}>{part("hand")}</group>
+                {i===0?<group scale={[s,1,1]}>{part("hand")}</group>:<group scale={[s,1,1]}>
+                  <group ref={relaxedHand}>{part("hand")}</group>
+                  <group ref={grippingHand} visible={false}>{part("hand_grip")}</group>
+                  <group ref={pointingHand} visible={false}>{part("hand_point")}</group>
+                </group>}
                 {i === 1 && <group ref={pencil} visible={false} position={[0,-.28,0]}>{part("pen")}</group>}
                 {i === 1 && <group ref={carriedCup} matrixAutoUpdate={false} visible={false} position={[-.048,-.33,.015]} scale={.46}><Mug position={[0,0,0]} /></group>}
               </group>

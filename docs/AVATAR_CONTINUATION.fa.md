@@ -25,7 +25,7 @@
 
 ## شواهد و gateهای باز
 
-شمارش قابل تکرار: `node integrations/avatar_lod_census.mjs`، گزارش `benchmarks/avatar-lods.json`. بدترین ترکیب شامل تمام لوازم: Low=۲٬۲۶۸ / Medium=۵٬۹۱۳ / High=۱۰٬۱۶۰ مثلث، داخل سقف‌های ۳k/۷k/۱۲k. فایل `characters.glb` master تألیف است؛ runtime V2 یکی از سه LOD را بارگذاری می‌کند. این اعداد شامل اشیای میز، shadow/effect passes یا draw call نیستند و FPS دستگاه واقعی را ثابت نمی‌کنند. نتیجهٔ baseline قبلی تاریخی است.
+شمارش قابل تکرار: `node integrations/avatar_lod_census.mjs`، گزارش `benchmarks/avatar-lods.json`. بدترین ترکیب شامل تمام لوازم: Low=۲٬۲۷۸ / Medium=۵٬۹۴۱ / High=۱۰٬۲۰۸ مثلث، داخل سقف‌های ۳k/۷k/۱۲k. فایل `characters.glb` master تألیف است؛ runtime V2 یکی از سه LOD را بارگذاری می‌کند. این اعداد شامل اشیای میز، shadow/effect passes یا draw call نیستند و FPS دستگاه واقعی را ثابت نمی‌کنند. نتیجهٔ baseline قبلی تاریخی است.
 
 ۱۹ مجموعه آزمون فرانت پاس شده‌اند: navigation، interactions، traffic، idle، meetings، static-batch، locomotion، coffee-contact، quality، avatar/store، status، motion، polling، color، webapp، regression تاپیک‌ها و کپی رابط. build، lint و typecheck نیز پاس شده‌اند. یک ایراد narrowing در تست تازهٔ جلسه در اجرای مستقیم typecheck دیده و اصلاح شد؛ اجرای مجدد پاس شد. سناریوی مرورگری: `integrations/qa_avatar_interactions.py`؛ خروجی فقط پس از اجرای موفق به گزارش پذیرش اضافه می‌شود.
 
@@ -38,3 +38,25 @@ gateهای باقی‌مانده: بازبینی نزدیک تمام صورت/م
 هدف نوشیدن از socket واقعی لب محاسبه می‌شود؛ فنجان متناسب با آن کج می‌شود و تبدیل معکوس parent از کشیده‌شدن فنجان در بدن compact/tall جلوگیری می‌کند. آزمون coffee-contact محل لبه را در سه زاویه بررسی می‌کند؛ به‌تنهایی صحت نهایی mesh و انگشتان را ثابت نمی‌کند. مسیر `/studio-preview` فقط با `STUDIO_PREVIEW_ENABLED=1` فعال است، به store یا API متصل نیست و پشت همان proxy احراز هویت می‌ماند. در حالت پیش‌فرض پاسخ ۴۰۴ تأیید شد.
 
 سرور QA از کپی مستقل خروجی standalone بیرون `.next` اجرا می‌شود تا build بعدی فایل‌های در حال استفاده را عوض نکند. درخواست health، manifest و مدل High در این نسخه پاسخ ۲۰۰ گرفت. دستور راه‌اندازی قابل بازیابی در draft محیط ذخیره شده و هنوز منتشر نشده است.
+
+### گرفتن اشیا
+
+دستِ باز برای حالت عادی حفظ شده و دو mesh پیوستهٔ `hand_grip` و `hand_point` با همان اتصال مچ ساخته شده‌اند. فقط یکی از سه فرم در دست تعاملی دیده می‌شود. گرفتن فنجان/قلم انگشتان جمع‌شده دارد؛ فشار دکمه با هدف نوک انگشت و طول دست متناظر حل می‌شود. census هر سه LOD، جمع‌شدن انگشتان، فاصلهٔ نوک اشاره و حفظ ابتدای مچ را روی هندسهٔ خروجی کنترل می‌کند. این تغییر جای فیزیک تماس یا ریگ مستقل تمام بند انگشت‌ها را نمی‌گیرد.
+
+تست مرورگر روی کپی مستقل checkpoint `6d6eb95`، Save/Cancel، HEX نامعتبر، انتخاب‌های مستقل، reload، Low روی موبایل و fallback واقعی `WEBGL_lose_context` و Retry را گذراند. تنها page error همان خطای عمدی context loss بود. در این اجرای مجدد چرخهٔ طولانی قهوه با `--skip-coffee` کنار گذاشته شد؛ تصاویر تماس از fixture جدا و چرخهٔ قهوه از اجرای قبلی شواهد جدا دارند.
+
+## وضعیت فازها و اقلام سند اصلی
+
+| فاز / اقلام | وضعیت قابل اثبات | شرط باقی‌مانده |
+|---|---|---|
+| P0 / AVA-001–002 | کانسپت تأییدشده و baseline تاریخی در ریپو؛ شمارش جدید LOD | پذیرش نهایی تصویری در اندازهٔ واقعی و دستگاه مرجع |
+| P1 / AVA-003–004 | schema بسته، migration، کلید پایدار، unknown recovery و rollback adapter با تست | همگام‌سازی سروری خارج از این نسخه است |
+| P2 / AVA-005–006 | صورت، ۹ مو، ریش، عینک و اکسسوری مستقل در renderer | بازبینی تمام ترکیب‌های مرزی مو/هدفون/عینک |
+| P3 / AVA-007–008 | لباس، تناسب، کفش، اشیای میز، joint/socket و دست تعاملی | پذیرش تماس صندلی، انگشت، قلم و بدن در ترکیب‌های مرزی |
+| P4 / AVA-009–010 | editor، draft، Save/Cancel/Reset، import/export، خطای storage؛ تست مرورگر و دامنه پاس | مرور نهایی تمام حالت‌ها در Safari/iOS |
+| P5 / AVA-011–012 | وضعیت معتبر، idle متنوع، damping، Reduced، navigation/coffee/traffic و قرارداد جلسه | producer واقعی planning_meeting در broker؛ بررسی تعامل هم‌زمان در نمای نزدیک |
+| P6 / AVA-013–015 | سه LOD زیر سقف مثلث، Auto/override، static batching، cache label و context Retry | هدف موقت ۲۵۰ draw call، GPU memory/churn و median/p95 روی دستگاه واقعی هنوز پذیرفته نشده |
+| P7 / AVA-016 | build/tests، برنچ مستقل، renderer flag و راهنمای rollback، گزارش و تصویر | ادغام/استقرار و پذیرش نهایی جدا از این برنچ هستند |
+| AVA-017 اختیاری | مسیر GLB طبق کانسپت قبلاً انتخاب شده؛ generator و asset محلی حفظ شده‌اند | skeletal animation clips و مقایسهٔ کنترل‌شده با Procedural V2 ادعا نشده‌اند |
+
+این جدول جایگزین وضعیت تاریخی ابتدای سند آپلودشده نیست؛ پیشرفت اجرای آن را ثبت می‌کند. شرط‌های باز به‌عنوان انجام‌شده علامت نخورده‌اند.
