@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, OrbitControls, OrthographicCamera, useProgress } from "@react-three/drei";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { memo, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { ACESFilmicToneMapping, PCFShadowMap, Vector3, type Group } from "three";
 import { actions } from "@/lib/store";
 import type { Agent, Approval, Fx, Room, SceneTheme } from "@/lib/types";
@@ -45,6 +45,14 @@ const THEME_RUG: Record<SceneTheme, string> = {
 
 const S = 1.35; // agents and their workstations are modelled in chibi units, scaled up
 const HEAD_Y = 1.69 * S;
+// Drei recaptures the cube map when its children change. Stable children avoid
+// recapturing reflections for statistics, labels or coffee phase UI updates.
+const StudioReflections=memo(function StudioReflections({intensity}:{intensity:number}){
+  return <Environment resolution={64} frames={1} environmentIntensity={intensity}>
+    <Lightformer form="rect" intensity={2} color="#fff5e6" scale={[12,7,1]} position={[2,5,-5]} target={[0,0,0]}/>
+    <Lightformer form="rect" intensity={.7} color="#e4edff" scale={[10,8,1]} position={[0,6,8]} target={[0,0,0]}/>
+  </Environment>;
+});
 /**
  * Phones: frame the occupied seats instead of the whole floor, so agents stay
  * big enough to read. Re-fits when the viewport or the team changes.
@@ -481,10 +489,7 @@ export default function OfficeScene({
           maxAzimuthAngle={1.35}
         />
 
-        <Environment resolution={64} frames={1} environmentIntensity={lighting.environmentIntensity}>
-          <Lightformer form="rect" intensity={2} color="#fff5e6" scale={[12, 7, 1]} position={[2, 5, -5]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={0.7} color="#e4edff" scale={[10, 8, 1]} position={[0, 6, 8]} target={[0, 0, 0]} />
-        </Environment>
+        <StudioReflections intensity={lighting.environmentIntensity}/>
         <hemisphereLight args={[lighting.skyColor, lighting.groundColor, 0.6]} />
         <ambientLight intensity={lighting.ambientIntensity} />
         <directionalLight
@@ -592,7 +597,7 @@ export default function OfficeScene({
       </Canvas>
       <StudioLoader />
       {meetingPhase && <span role="status" className="absolute right-16 top-3 z-20 rounded-xl border border-line bg-surface/90 px-3 py-2 text-[11px] text-muted shadow-sm">{meetingPhase === "waiting" ? "Waiting for meeting seats" : meetingPhase === "gathering" ? "Planning meeting · gathering" : meetingPhase === "returning" ? "Returning to work" : "Planning meeting"}</span>}
-      <button type="button" aria-label={paused ? "Resume scene animation" : "Pause scene animation"} aria-pressed={paused} onClick={()=>setPaused(p=>!p)} title={paused ? "Resume scene animation" : "Pause scene animation"} className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full border border-line bg-surface/90 text-sm text-ink shadow-sm">{paused ? "▶" : "Ⅱ"}</button>
+      <button type="button" aria-label={paused ? "Resume scene animation" : "Pause scene animation"} aria-pressed={paused} onClick={()=>setPaused(p=>!p)} title={paused ? "Resume scene animation" : "Pause scene animation"} className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full border border-line bg-surface/90 text-sm text-ink shadow-sm"><svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">{paused?<path d="M6 3.5v13l10-6.5z"/>:<><rect x="5" y="3.5" width="3" height="13" rx=".7"/><rect x="12" y="3.5" width="3" height="13" rx=".7"/></>}</svg></button>
       <div className="pointer-events-none absolute inset-0">
         {coffeeStatus && <Overlay id={`${coffeeStatus.owner}:break`} z={12}><span className="rounded-full bg-surface px-2 py-1 text-[11px] text-muted shadow-sm">Coffee break{coffeeStatus.brew ? " · brewing" : ""}</span></Overlay>}
         {ordered.map((agent) => (

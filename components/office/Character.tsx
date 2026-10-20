@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { Color, Matrix4, MeshPhysicalMaterial, Quaternion, Vector3, type Group, type Material, type Mesh, type MeshStandardMaterial } from "three";
@@ -14,6 +14,7 @@ import type { AvatarAppearanceV2 } from "@/lib/avatar/types";
 import { LegacyCharacter } from "./LegacyCharacter";
 import { useStudioQuality } from "./StudioQuality";
 import { drinkingGrip, mugHandleOffset } from "@/lib/avatar/coffee-contact";
+import {batchRigidCharacter,type RigidCharacterBatch} from '@/lib/avatar/rigid-batch';
 import { footTarget, solveLeg } from "@/lib/avatar/locomotion";
 import type { IdleGesture } from "@/lib/office/idle";
 import { validateAppearance } from "@/lib/avatar/validate";
@@ -132,6 +133,7 @@ export function Character(props: CharacterProps) {
 }
 
 function StudioCharacter({ look, appearance, status, seed, reducedMotion = false, paused = false, motion, onClick, children }: CharacterProps) {
+  const quality=useStudioQuality(),lowBatch=useRef<RigidCharacterBatch|null>(null);
   const profile = useMemo(() => motionProfile(seed), [seed]);
   const elapsed = useRef(0);
   const root = useRef<Group>(null);
@@ -164,6 +166,11 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
   const sit = useRef(1); // 1 = seated, 0 = standing (smoothed)
 
   const { parts, materials } = useCharacterParts(look, appearance?.outfit.shoeColor);
+  useLayoutEffect(()=>{
+    if(quality!=='low'||!root.current)return;
+    const batch=batchRigidCharacter(root.current);lowBatch.current=batch;
+    return()=>{batch?.dispose();lowBatch.current=null;};
+  },[quality,parts,materials,appearance]);
   const shape = useMemo(() => appearance ? {faceWidth:1,torsoWidth:appearance.body.proportions === "compact" ? 1.08 : appearance.body.proportions === "tall" ? .94 : 1} : physique(look), [look,appearance]);
   const part = (name: string) => {
     const source = parts.get(name);
@@ -351,6 +358,7 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
         carriedCup.current.matrixWorldNeedsUpdate=true;
       }
     }
+    lowBatch.current?.update();
   });
 
   return (
@@ -398,8 +406,8 @@ function StudioCharacter({ look, appearance, status, seed, reducedMotion = false
                   <group ref={grippingHand} visible={false}>{part("hand_grip")}</group>
                   <group ref={pointingHand} visible={false}>{part("hand_point")}</group>
                 </group>}
-                {i === 1 && <group ref={pencil} visible={false} position={[0,-.28,0]}>{part("pen")}</group>}
-                {i === 1 && <group ref={carriedCup} matrixAutoUpdate={false} visible={false} position={[-.048,-.33,.015]} scale={.46}><Mug position={[0,0,0]} /></group>}
+                {i === 1 && <group ref={pencil} userData={{unbatchable:true}} visible={false} position={[0,-.28,0]}>{part("pen")}</group>}
+                {i === 1 && <group ref={carriedCup} userData={{unbatchable:true}} matrixAutoUpdate={false} visible={false} position={[-.048,-.33,.015]} scale={.46}><Mug position={[0,0,0]} /></group>}
               </group>
             </group>
           ))}

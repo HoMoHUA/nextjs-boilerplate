@@ -5,7 +5,8 @@
       "level": "low",
       "bytes": 356128,
       "parts": 51,
-      "worstCaseTriangles": 2278,
+      "worstCaseTriangles": 2474,
+      "inactiveRigidHandVariantsIncluded": true,
       "budget": 3000,
       "withinBudget": true
     },
@@ -14,6 +15,7 @@
       "bytes": 694200,
       "parts": 51,
       "worstCaseTriangles": 5941,
+      "inactiveRigidHandVariantsIncluded": false,
       "budget": 7000,
       "withinBudget": true
     },
@@ -22,6 +24,7 @@
       "bytes": 1058360,
       "parts": 51,
       "worstCaseTriangles": 10208,
+      "inactiveRigidHandVariantsIncluded": false,
       "budget": 12000,
       "withinBudget": true
     }

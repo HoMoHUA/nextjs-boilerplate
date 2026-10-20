@@ -8,6 +8,7 @@
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
     "lint": "eslint",
+    "test:frontend": "node integrations/run_frontend_checks.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
