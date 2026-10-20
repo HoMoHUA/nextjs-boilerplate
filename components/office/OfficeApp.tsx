@@ -215,7 +215,7 @@ export default function OfficeApp() {
 
         {/* office + bottom sheet */}
         <main className="relative min-h-0 flex-1">
-          {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} colorMode={colorMode} motionPreference={s.motionPreference} fx={s.fx} compact padBottom={landscape ? 12 : 70} padRight={landscape ? 56 : 0} />}
+          {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} colorMode={colorMode} motionPreference={s.motionPreference} quality={s.qualityPreference} fx={s.fx} compact padBottom={landscape ? 12 : 70} padRight={landscape ? 56 : 0} />}
           {s.view === "lounge" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><LoungeView s={s} /></div>}
           {s.view === "schedule" && <div className="h-full overflow-y-auto px-3 pb-20 pt-2"><ScheduleView s={scheduleState} /></div>}
           {s.view === "room" && (
@@ -310,7 +310,7 @@ export default function OfficeApp() {
 
           <ConnectionStatus status={s.integrations} room={room} />
           <div className="relative min-h-0 flex-1">
-            {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} colorMode={colorMode} motionPreference={s.motionPreference} fx={s.fx} />}
+            {s.view === "room" && <OfficeScene room={sceneRoom} selectedId={sceneSelected} theme={s.theme} colorMode={colorMode} motionPreference={s.motionPreference} quality={s.qualityPreference} fx={s.fx} />}
             {s.view === "lounge" && <div className="h-full pt-6"><LoungeView s={s} /></div>}
             {s.view === "schedule" && <div className="h-full pt-6"><ScheduleView s={scheduleState} /></div>}
 

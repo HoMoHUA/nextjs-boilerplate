@@ -3,7 +3,7 @@ import type { AgentLook } from "../types";
 import { MAX_AVATAR_RECORDS } from "./catalog";
 import { defaultAppearance, defaultAvatarPreferences, fromLegacyLook, topicAppearanceKey, toLegacyLook } from "./defaults";
 import { isPlainRecord, validTopicIdentity, validateAppearance, validateAvatarPreferences } from "./validate";
-import type { AvatarPreferences, TopicIdentity, ValidationResult } from "./types";
+import type { AvatarAppearanceV2, AvatarPreferences, TopicIdentity, ValidationResult } from "./types";
 
 export function readAvatarPreferences(raw: unknown): { preferences: AvatarPreferences; issue?: "invalid" | "future-version" } {
   if (raw === undefined) return { preferences: defaultAvatarPreferences() };
@@ -35,6 +35,16 @@ export function createTopicLookResolver(raw: unknown): (groupId: string, topicId
     if (!validTopicIdentity(groupId, topicId) || raw === undefined || issue || preferences.renderer === "v1") return { ...lookFor(`topic:${topicId}`) };
     const appearance = preferences.topicAppearances[topicAppearanceKey(groupId, topicId)]?.appearance ?? defaultAppearance(groupId, topicId);
     return toLegacyLook(appearance);
+  };
+}
+
+export function createTopicPresentationResolver(raw:unknown) {
+  const {preferences,issue}=readAvatarPreferences(raw);
+  return (groupId:string,topicId:string):{look:AgentLook;appearance?:AvatarAppearanceV2;renderer:"v1"|"v2"} => {
+    if(!validTopicIdentity(groupId,topicId)||raw===undefined||issue||preferences.renderer==="v1")
+      return {look:{...lookFor(`topic:${topicId}`)},renderer:"v1"};
+    const appearance=structuredClone(preferences.topicAppearances[topicAppearanceKey(groupId,topicId)]?.appearance??defaultAppearance(groupId,topicId));
+    return {look:toLegacyLook(appearance),appearance,renderer:"v2"};
   };
 }
 

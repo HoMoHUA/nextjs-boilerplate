@@ -1,5 +1,5 @@
 import type { Agent, IntegrationSnapshot, OfficeState, Room } from "./types";
-import { createTopicLookResolver } from "./avatar/storage";
+import { createTopicPresentationResolver } from "./avatar/storage";
 import { topicVisualActivity } from "./avatar/status";
 
 export const TOPICS_PER_PAGE = 12;
@@ -8,13 +8,13 @@ export const visibleRooms = (s:OfficeState):Room[] => s.rooms.filter(r=>!r.teleg
 export const visibleTopics = (s:OfficeState):Room[] => visibleRooms(s).filter(r=>!!r.telegram).sort((a,b)=>Number(a.telegram!.topicId)-Number(b.telegram!.topicId));
 export const topicAvatarId = (roomId:string) => `topic-avatar:${roomId}`;
 export function topicActors(s:OfficeState):Agent[] {
-  const resolveLook = createTopicLookResolver(s.avatarPreferences);
+  const resolveLook = createTopicPresentationResolver(s.avatarPreferences);
   return visibleTopics(s).map(room=>{
     const visualActivity=topicVisualActivity(room,s.integrations);
     const working=visualActivity === "processing";
     return {id:topicAvatarId(room.id),topicRoomId:room.id,name:room.name,title:"Telegram topic",persona:"",isLead:false,
       status:working?"working":room.agents.some(a=>a.status==="needs_you")?"needs_you":"idle",
-      look:resolveLook(room.telegram!.groupId,room.telegram!.topicId),runtime:true,visualActivity,
+      ...resolveLook(room.telegram!.groupId,room.telegram!.topicId),runtime:true,visualActivity,
       activity:working?room.agents.find(a=>a.status==="working")?.activity || "Topic is processing":undefined};
   });
 }

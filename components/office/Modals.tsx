@@ -8,6 +8,7 @@ import { AgentAvatar } from "./AgentAvatar";
 import { X } from "./icons";
 import { THEME_FLOOR } from "./OfficeScene";
 import { normalizeColorMode, type ColorMode } from "@/lib/color-mode";
+import { AppearanceEditor } from "./AppearanceEditor";
 import { WebAppSettings } from "./WebAppSupport";
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -65,7 +66,7 @@ export function TeamEditor({ room, onClose }: { room?: Room; onClose: () => void
   const [fileAgents, setFileAgents] = useState<{ id: string; description: string; source: string }[] | null>(null);
   const cc = backend === "claude-code";
 
-  const patch = (id: string, p: Partial<Agent>) => setAgents((xs) => xs.map((a) => (a.id === id ? { ...a, ...p } : a)));
+  const patch = (id: string, p: Partial<Agent>) => setAgents((xs) => xs.map((a) => (a.id === id ? { ...a, ...p, ...(p.look ? {appearance:undefined} : {}) } : a)));
   const addSubagent = (type: string, title: string, source: Agent["source"]) => {
     if (agents.some((a) => (a.subagentId ?? slug(a.name)) === type)) return;
     setAgents((xs) => [
@@ -323,8 +324,13 @@ export function SettingsModal({ health, claudeCode, onClose }: { health: Health 
 }
 
 export function ThemeModal({ s, onClose }: { s: OfficeState; onClose: () => void }) {
+  const [appearance,setAppearance]=useState(false);
+  const customize=useRef<HTMLButtonElement>(null),visited=useRef(false);
+  useEffect(()=>{if(appearance)visited.current=true;else if(visited.current)customize.current?.focus();},[appearance]);
+  if(appearance)return <Modal key="appearance" title="Character appearance" onClose={()=>setAppearance(false)}><AppearanceEditor s={s} onClose={()=>setAppearance(false)}/></Modal>;
   return (
-    <Modal title="Office theme" onClose={onClose}>
+    <Modal key="theme" title="Office theme" onClose={onClose}>
+      <button ref={customize} onClick={()=>setAppearance(true)} className="mb-5 min-h-11 rounded-xl border border-line px-4 text-[13px]">Customize character</button>
       <fieldset dir="ltr" className="mb-6">
         <legend className="mb-2 text-[14px] font-semibold">Display mode</legend>
         <div className="grid grid-cols-3 gap-2">
@@ -342,6 +348,12 @@ export function ThemeModal({ s, onClose }: { s: OfficeState; onClose: () => void
           </button>
         ))}
       </div>
+      <label className="mt-6 flex flex-wrap items-center justify-between gap-3 text-[14px] font-semibold">
+        Scene quality
+        <select aria-label="Scene quality" value={s.qualityPreference ?? "auto"} onChange={event => actions.set("qualityPreference",event.target.value as "auto"|"low"|"medium"|"high")} className="min-h-11 rounded-xl border border-line bg-inset px-3 text-[13px] font-normal">
+          <option value="auto">Auto</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+        </select>
+      </label>
       <label className="mt-6 flex flex-wrap items-center justify-between gap-3 text-[14px] font-semibold">
         Motion
         <select aria-label="Motion preference" value={s.motionPreference ?? "system"} onChange={event => actions.set("motionPreference", event.target.value as "system" | "reduced" | "full")} className="min-h-11 rounded-xl border border-line bg-inset px-3 text-[13px] font-normal">

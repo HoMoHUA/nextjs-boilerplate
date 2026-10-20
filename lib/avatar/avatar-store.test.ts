@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getState, hydrate, mergeIntegrations, setState } from "../store";
+import { actions, getState, hydrate, mergeIntegrations, setState } from "../store";
 import { lookFor, seedState } from "../seed";
 import { topicActors } from "../topics";
 import { defaultAppearance, topicAppearanceKey, toLegacyLook } from "./defaults";
@@ -96,6 +96,22 @@ async function main() {
     assert.deepEqual(captured.topicAppearances[topicAppearanceKey(binding.groupId, binding.topicId)].appearance,
       (initializeAvatarPreferences(undefined, [binding], true) as AvatarPreferences).topicAppearances[topicAppearanceKey(binding.groupId, binding.topicId)].appearance,
       "snapshot migration also protects already-visible legacy topics");
+    await persist();
+    const routingBefore={target:getState().targetAgentId,rooms:getState().rooms.map(r=>({id:r.id,messages:r.messages,telegram:r.telegram}))};
+    assert.equal(actions.saveAvatar(room.id,null,custom).ok,true);
+    assert.equal(topicActors(getState()).find(a=>a.topicRoomId===room.id)!.appearance!.outfit.topColor,"#123456");
+    assert.deepEqual({target:getState().targetAgentId,rooms:getState().rooms.map(r=>({id:r.id,messages:r.messages,telegram:r.telegram}))},routingBefore);
+    assert.equal(actions.saveAvatar("foreign-room",null,custom).ok,false);
+    const originalWrite=storage.setItem;
+    storage.setItem=()=>{throw new Error("QuotaExceededError");};
+    const quota=actions.saveAvatar(room.id,null,custom);
+    assert.equal(quota.ok,false);if(!quota.ok)assert.match(quota.error,/session/);
+    storage.setItem=originalWrite;
+    assert.equal(actions.saveAvatar(room.id,null,custom,true).ok,true);
+    assert.equal(Object.hasOwn((getState().avatarPreferences as AvatarPreferences).topicAppearances,topicAppearanceKey(binding.groupId,binding.topicId)),false);
+    setState(s=>({...s,avatarPreferences:future}));
+    assert.equal(actions.saveAvatar(room.id,null,custom).ok,false);
+    assert.deepEqual(getState().avatarPreferences,future);
     await persist();
     assert.equal(requests, 0, "appearance lifecycle never sends Telegram/model requests");
     console.log("PASS avatar store: legacy/custom/future reload, snapshot/defaults, actual names/history/tombstones/none/native targets and zero network requests");

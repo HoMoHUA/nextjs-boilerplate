@@ -1,4 +1,4 @@
-/** Closed data vocabulary. Visual availability is narrower until P2/P3 QA. */
+/** Closed data vocabulary; all choices have local model/scene representations. Visual acceptance remains separate. */
 export const AVATAR_CATALOG = {
   faceShapes: ["round", "oval", "angular"],
   eyes: ["soft", "wide", "narrow"],
@@ -23,4 +23,4 @@ export const MAX_IMPORT_BYTES = 1024 * 1024;
 export const MAX_SEED_LENGTH = 128;
 /** Fixed project asset; user data never chooses a URL or filename. */
 export const CHARACTER_ASSET = "/models/studio/characters.glb";
-export const RENDERED_HAIR_STYLES = ["short", "curly", "fluffy", "bun", "bob", "buzz"] as const;
+export const RENDERED_HAIR_STYLES = ["short", "curly", "fluffy", "bun", "bob", "buzz", "wavy", "side-part", "ponytail"] as const;

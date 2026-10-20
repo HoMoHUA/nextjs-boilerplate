@@ -4,6 +4,7 @@
  * event belongs to.
  */
 export type OfficeEvent =
+  | import("./office/meetings").MeetingEvent
   | { type: "session"; id: string; agents: string[] }
   | { type: "text"; agent: string | null; parent: string | null; delta: string }
   | { type: "tool"; agent: string | null; parent: string | null; name: string; detail: string }

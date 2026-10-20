@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {adaptQuality,qualityPreference} from './quality';
+assert.equal(qualityPreference('future'),'auto');
+assert.equal(adaptQuality('high',35,0,false),'medium');
+assert.equal(adaptQuality('medium',35,0,false),'low');
+assert.equal(adaptQuality('low',16,5,false),'low');
+assert.equal(adaptQuality('low',16,21,false),'medium');
+assert.equal(adaptQuality('medium',16,21,true),'medium');
+assert.equal(adaptQuality('medium',23,100,false),'medium');
+console.log('PASS quality thresholds, stable upgrade window, compact cap and unknown preference');

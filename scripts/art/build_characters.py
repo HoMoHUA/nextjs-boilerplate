@@ -41,6 +41,9 @@ M = {name: material(name, color, rough) for name, color, rough in [
 ]}
 
 
+M["beard_stubble"]=material("beard_stubble",(.28,.18,.12),.95)
+M["beard_short"]=material("beard_short",(.16,.09,.05),.93)
+
 def coord(p):
     return (p[0], -p[2], p[1])
 
@@ -387,7 +390,9 @@ shoe_parts=[shoe_section("upper"),shoe_section("sole",True)]
 for z in [.008,.027,.046]:
     shoe_parts.append(tube("lace",[(-.028,-.225,z),(.027,-.225,z+.004)],.0028,"sole",6))
 shoe_parts.append(tube("toe_seam",[(-.061,-.263,.109),(-.035,-.244,.129),(0,-.240,.136),(.035,-.244,.129),(.061,-.263,.109)],.0015,"sole",6))
-merge("shoe",shoe_parts)
+shoe=merge("shoe",shoe_parts)
+# V2 shoe origin is the ankle; V1 retains its original asset and joint adapter.
+for vertex in shoe.data.vertices:vertex.co.z+=.297
 
 # Thin metal frames are authored to fit the adult face without hiding the eyes.
 frames=[];lenses=[]
@@ -411,6 +416,85 @@ merge("headphones",phone_parts)
 
 from character_hair import build_hair
 build_hair(M)
+
+# Independent face, grooming, eyewear and garment alternatives share the same rig.
+def clone_part(source, name):
+    ob=bpy.data.objects[source].copy();ob.data=ob.data.copy();ob.name=name
+    bpy.context.collection.objects.link(ob)
+    return ob
+
+for shape in ("round","angular"):
+    ob=clone_part("face","face_"+shape)
+    for v in ob.data.vertices:
+        y=v.co.z
+        if shape=="round":v.co.x*=1.07-0.07*max(0,y)/.3
+        else:v.co.x*=1+0.13*gaussian(y,-.18,.055)
+for base in ("face","face_round","face_angular"):
+    small=clone_part(base,base+"_small_nose")
+    for v in small.data.vertices:
+        x,y,z=v.co.x,v.co.z,-v.co.y
+        if z>0:v.co.y+=.032*gaussian(x,0,.035)*gaussian(y,-.04,.06)
+smile=clone_part("mouth","mouth_smile")
+for v in smile.data.vertices:
+    if v.co.z<-.1:v.co.z+=.012*(min(1,abs(v.co.x)/.057))**2
+sneaker=clone_part("shoe","shoe_sneakers")
+for v in sneaker.data.vertices:
+    v.co.x*=1.08
+    if v.co.z<.052:v.co.z-=.008
+
+for style in ("square","oval"):
+    ob=clone_part("glasses","glasses_"+style)
+    for v in ob.data.vertices:
+        if -v.co.y>.19:
+            cx=.089 if v.co.x>=0 else -.089
+            dx=(v.co.x-cx)/.061;dy=(v.co.z-.016)/.046
+            if style=="square":
+                v.co.x=cx+math.copysign(abs(dx)**.55,dx)*.061
+                v.co.z=.016+math.copysign(abs(dy)**.55,dy)*.043
+            else:v.co.z=.016+(v.co.z-.016)*.72
+for length in ("stubble","short"):
+    # A continuous conforming beard shell, not disconnected rows of cylinders.
+    verts=[];faces=[];rows=18;cols=40
+    for j in range(rows):
+        y=-.09-j*.173/(rows-1)
+        n=next((i for i in range(len(profile)-1) if profile[i+1][0]>=y),len(profile)-2)
+        t=(y-profile[n][0])/(profile[n+1][0]-profile[n][0]);rx=profile[n][1]*(1-t)+profile[n+1][1]*t
+        for i in range(cols):
+            angle=-1.28+i*2.56/(cols-1);x=math.sin(angle)*rx
+            depth=.002 if length=="stubble" else .007+.005*gaussian(y,-.22,.05)
+            verts.append((x,y,face_depth(x,y)+depth))
+    for j in range(rows-1):
+        for i in range(cols-1):
+            indices=[j*cols+i,j*cols+i+1,(j+1)*cols+i+1,(j+1)*cols+i]
+            # Leave the lip/muzzle area open, with a shaped cheek line.
+            center=sum(verts[k][0] for k in indices)/4;y=sum(verts[k][1] for k in indices)/4
+            if y>-.19 and abs(center)<.064+(y+.19)*.18:continue
+            if y>-.115 and abs(center)<.10:continue
+            faces.append(tuple(indices))
+    beard=mesh("beard_"+length,verts,faces,"beard_"+length)
+    moustache=[]
+    for sign in (-1,1):
+        moustache.append(tube("moustache",[(sign*.008,-.112,.191),(sign*.029,-.116,.187),(sign*.050,-.133,.179)],
+            [.003,.006 if length=="stubble" else .009,.002],"beard_"+length,8))
+    merge("beard_"+length,[beard,*moustache])
+    for shape in ("round","angular"):
+        ob=clone_part("beard_"+length,"beard_"+length+"_"+shape)
+        for v in ob.data.vertices:
+            y=v.co.z
+            v.co.x*=1.07-0.07*max(0,y)/.3 if shape=="round" else 1+0.13*gaussian(y,-.18,.055)
+# Hood folds, pocket and drawstrings follow the torso surface.
+hood=[]
+hood.append(loft("hood_fold",[(.60,.13,.09,-.04),(.67,.17,.12,-.07),(.76,.15,.10,-.09),(.80,.10,.06,-.10)],"shirt",24))
+for sign in (-1,1):
+    hood.append(tube("drawstring",[(sign*.073,.64,.13),(sign*.067,.52,.173),(sign*.062,.39,.159)],.003,"accent",6))
+hood.append(tube("kangaroo_seam",[(-.14,.18,.124),(-.09,.25,.15),(.09,.25,.15),(.14,.18,.124)],.003,"shirt_shadow",6))
+merge("hoodie_details",hood)
+watch=[]
+watch.append(loft("watch_band",[(-.18,.044,.043,0),(-.205,.046,.045,0),(-.22,.043,.042,0)],"metal",16))
+watch.append(ellipsoid("watch_face",(0,-.202,.048),(.024,.019,.006),"headphones",12,6))
+merge("watch",watch)
+
+tube("pen",[(0,-.005,0),(0,-.095,0),(0,-.105,0)],[.0035,.0035,.0005],"metal",6)
 
 # Triangulate now so the browser doesn't need to infer polygon topology.
 for ob in list(bpy.context.scene.objects):
@@ -437,3 +521,14 @@ bpy.ops.export_scene.gltf(filepath=output, export_format="GLB", export_yup=True,
 print("Character asset:",output)
 for ob in bpy.context.scene.objects:
     if ob.type=="MESH":print(ob.name,len(ob.data.polygons),"triangles")
+
+# Decimation is offline and keeps every named rig part/UV/material assignment.
+originals={ob.name:ob.data.copy() for ob in bpy.context.scene.objects if ob.type=="MESH"}
+for level,ratio in [("high",.42),("medium",.245),("low",.095)]:
+    for ob in bpy.context.scene.objects:
+        if ob.type!="MESH":continue
+        ob.data=originals[ob.name].copy()
+        bpy.context.view_layer.objects.active=ob
+        mod=ob.modifiers.new("Offline LOD","DECIMATE");mod.ratio=ratio;mod.use_collapse_triangulate=True
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.ops.export_scene.gltf(filepath=os.path.join(ROOT,"public","models","studio","characters-"+level+".glb"),export_format="GLB",export_yup=True,export_materials="EXPORT",export_animations=False,export_cameras=False,export_lights=False)

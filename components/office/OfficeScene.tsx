@@ -8,15 +8,24 @@ import { actions } from "@/lib/store";
 import type { Agent, Approval, Fx, Room, SceneTheme } from "@/lib/types";
 import { ApprovalCard } from "./ApprovalCard";
 import { Character, type Motion } from "./Character";
-import { Confetti, PaperFlight, StatusRing } from "./Effects";
+import { Confetti, StatusRing } from "./Effects";
 import { Armchair, Bookshelf, Cabinet, Mug, Plant, RoundTable, Rug, SideCabinet, Whiteboard } from "./Furniture";
 import { Anchor, Overlay, Projector } from "./Overlay";
 import { CoffeeStation, OfficeChair, Workstation } from "./Workstation";
+import { StaticStudio } from "./StaticStudio";
 import { StudioEnvironment } from "./StudioEnvironment";
 import { StudioPostProcessing } from "./StudioPostProcessing";
 import { StudioJoinery } from "./StudioJoinery";
 import { StudioBoundary } from "./StudioBoundary";
 import { scenePalette, type ResolvedColorMode } from "@/lib/color-mode";
+import { adaptQuality, QUALITY_PROFILES, qualityPreference, type QualityLevel } from "@/lib/avatar/quality";
+import type { AvatarQuality } from "@/lib/avatar/types";
+import { ContextRecovery, QualityMonitor, RendererStats, StudioQualityContext, type StudioStats } from "./StudioQuality";
+import { IdleDirector, type IdleGesture } from "@/lib/office/idle";
+import { TrafficDirector, type HandoffSample } from "@/lib/office/traffic";
+import { MeetingDirector, type MeetingActorSample } from "@/lib/office/meetings";
+import { CoffeeDirector, type CoffeeSample } from "@/lib/office/interactions";
+import { DESKS, SPOTS, TABLE, meetingSeat, routeBetween, type Spot, type XZ } from "@/lib/office/navigation";
 import { dampFactor, motionIdentitySeed } from "@/lib/avatar/motion";
 import { useMotionPreferences, type MotionPreference } from "./useMotionPreferences";
 
@@ -36,92 +45,6 @@ const THEME_RUG: Record<SceneTheme, string> = {
 
 const S = 1.35; // agents and their workstations are modelled in chibi units, scaled up
 const HEAD_Y = 1.69 * S;
-const WALK_SPEED = 1.55; // relaxed walking in world units per second
-const STAND_UP = 0.45;
-const TALK = 2.2;
-
-type XZ = [number, number];
-
-interface Spot {
-  pos: [number, number, number];
-  rot: number;
-  kind: "lead" | "desk" | "meeting";
-}
-
-const TABLE: XZ = [-4.4, 4.0];
-const meetingSeat = (a: number): Spot => {
-  const x = TABLE[0] + Math.sin(a) * 1.75;
-  const z = TABLE[1] + Math.cos(a) * 1.75;
-  return { pos: [x, 0, z], rot: Math.atan2(TABLE[0] - x, TABLE[1] - z), kind: "meeting" };
-};
-
-/**
- * Seats in assignment order: the lead's desk, then one personal desk per
- * agent, then the meeting table for anyone beyond that. Everyone at a desk
- * faces +z, so the aisles behind the rows stay free for walking.
- */
-// Keep the rear walking aisle in front of the studio wall and its oak skirting.
-const ROW_A = -3.8;
-const ROW_B = 0.4;
-const DESKS: Spot[] = [
-  { pos: [-4.6, 0, ROW_B], rot: 0, kind: "lead" },
-  { pos: [-1.6, 0, ROW_B], rot: 0, kind: "desk" },
-  { pos: [1.3, 0, ROW_B], rot: 0, kind: "desk" },
-  { pos: [-1.6, 0, ROW_A], rot: 0, kind: "desk" },
-  { pos: [1.3, 0, ROW_A], rot: 0, kind: "desk" },
-  { pos: [4.2, 0, ROW_B], rot: 0, kind: "desk" },
-  { pos: [4.2, 0, ROW_A], rot: 0, kind: "desk" },
-  { pos: [-4.6, 0, ROW_A], rot: 0, kind: "desk" },
-];
-const SPOTS: Spot[] = [...DESKS, ...[0.8, -0.8, 2.35, -2.35].map(meetingSeat)];
-
-/** Walking route between two seats along the aisles behind the desk rows and the gaps between desks. */
-function routeBetween(from: Spot, to: Spot): XZ[] {
-  const [fx, , fz] = from.pos;
-  const [tx, , tz] = to.pos;
-  const behind = (sp: Spot): XZ => (sp.kind === "meeting" ? [sp.pos[0] + (sp.pos[0] - TABLE[0]) * 0.35, sp.pos[2] + (sp.pos[2] - TABLE[1]) * 0.35] : [sp.pos[0], sp.pos[2] - 1.15]);
-  const start = behind(from);
-  const pts: XZ[] = [[fx, fz], start];
-  if (to.kind === "meeting") {
-    pts.push([start[0], 2.2], [behind(to)[0], 2.2], behind(to));
-    return pts;
-  }
-  const gapX = tx - 1.45; // the gap left of the target's desk
-  const meet: XZ = [tx - 0.95, tz - 0.45];
-  if (from.kind === "meeting") pts.push([start[0], 2.2], [gapX, 2.2]);
-  else pts.push([gapX, start[1]]);
-  pts.push([gapX, meet[1]], meet);
-  return pts;
-}
-
-function pathLength(pts: XZ[]) {
-  let d = 0;
-  for (let i = 1; i < pts.length; i++) d += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-  return d;
-}
-
-/** Point and heading at distance `d` along the route. */
-function along(pts: XZ[], d: number): { x: number; z: number; heading: number } {
-  for (let i = 1; i < pts.length; i++) {
-    const [ax, az] = pts[i - 1];
-    const [bx, bz] = pts[i];
-    const seg = Math.hypot(bx - ax, bz - az);
-    if (d <= seg || i === pts.length - 1) {
-      const k = seg ? Math.min(1, d / seg) : 1;
-      return { x: ax + (bx - ax) * k, z: az + (bz - az) * k, heading: Math.atan2(bx - ax, bz - az) };
-    }
-    d -= seg;
-  }
-  return { x: pts[0][0], z: pts[0][1], heading: 0 };
-}
-
-/** Timeline of a hand-off: stand up, walk over, talk, walk back, sit down. */
-function handoffTiming(route: XZ[]) {
-  const walk = pathLength(route) / WALK_SPEED;
-  const arrive = STAND_UP + walk;
-  return { walk, arrive, leave: arrive + TALK, end: arrive + TALK + walk + STAND_UP };
-}
-
 /**
  * Phones: frame the occupied seats instead of the whole floor, so agents stay
  * big enough to read. Re-fits when the viewport or the team changes.
@@ -340,18 +263,21 @@ interface ActorProps {
   agent: Agent;
   spot: Spot;
   reducedMotion: boolean;
+  paused:boolean;
   selectedColor: string;
   selected: boolean;
-  handoff?: { route: XZ[]; face: XZ; ts: number };
+  idleRef:React.RefObject<Map<string,IdleGesture>>;
+  handoffRef: React.RefObject<HandoffSample|null>;
   celebrateAt: number;
   lookAt: Vector3 | null;
+  coffeeRef: React.RefObject<CoffeeSample | null>;
+  meetingRef: React.RefObject<Map<string,MeetingActorSample>>;
 }
 
 /** One agent: sits at their seat, and on a hand-off stands up, walks the aisles to a teammate, talks, and comes back. */
-function AgentActor({ agent, spot, reducedMotion, selectedColor, selected, handoff, celebrateAt, lookAt }: ActorProps) {
+function AgentActor({ agent, spot, reducedMotion, paused, selectedColor, selected, handoffRef, celebrateAt, lookAt, coffeeRef, meetingRef, idleRef }: ActorProps) {
   const group = useRef<Group>(null);
   const motion = useRef<Motion>({ walking: false, seated: true, talking: false, look: null, celebrateAt: 0 });
-  const timing = useMemo(() => (handoff ? handoffTiming(handoff.route) : null), [handoff]);
 
   useEffect(() => {
     motion.current.look = lookAt;
@@ -362,7 +288,7 @@ function AgentActor({ agent, spot, reducedMotion, selectedColor, selected, hando
 
   useFrame((_, dt) => {
     const g = group.current;
-    if (!g) return;
+    if (!g || paused) return;
     const m = motion.current;
     let x = spot.pos[0];
     let z = spot.pos[2];
@@ -371,24 +297,25 @@ function AgentActor({ agent, spot, reducedMotion, selectedColor, selected, hando
     let seated = true;
     let talking = false;
 
-    if (!reducedMotion && handoff && timing) {
-      const age = (Date.now() - handoff.ts) / 1000;
-      const len = pathLength(handoff.route);
-      if (age < timing.end) seated = age > timing.end - STAND_UP * 0.6 || age < STAND_UP * 0.3;
-      if (age >= STAND_UP && age < timing.arrive) {
-        const p = along(handoff.route, (age - STAND_UP) * WALK_SPEED);
-        [x, z, facing, walking] = [p.x, p.z, p.heading, true];
-      } else if (age >= timing.arrive && age < timing.leave) {
-        const p = along(handoff.route, len);
-        [x, z, talking] = [p.x, p.z, true];
-        facing = Math.atan2(handoff.face[0] - x, handoff.face[1] - z);
-      } else if (age >= timing.leave && age < timing.end - STAND_UP) {
-        const back = [...handoff.route].reverse();
-        const p = along(back, (age - timing.leave) * WALK_SPEED);
-        [x, z, facing, walking] = [p.x, p.z, p.heading, true];
-      }
-    }
+    const handoff = reducedMotion ? null : handoffRef.current;
+    if(handoff?.owner === agent.id){x=handoff.x;z=handoff.z;facing=handoff.heading;walking=handoff.walking;seated=handoff.seated;talking=handoff.talking;}
 
+    const visit = reducedMotion ? null : coffeeRef.current;
+    m.idleGesture=idleRef.current.get(agent.id);
+    m.noteTarget=undefined;
+    m.hand = undefined;
+    m.carrying = false;
+    if (visit?.owner === agent.id) {
+      x = visit.x; z = visit.z; facing = visit.heading;
+      seated = visit.seated; walking = visit.walking; talking = false;
+      m.hand = visit.hand;
+      m.carrying = visit.carrying;
+      m.station = !visit.walking && !visit.seated && visit.phase !== "stand";
+    } else m.station = false;
+    const meeting = reducedMotion ? null : meetingRef.current.get(agent.id);
+    if(meeting){x=meeting.x;z=meeting.z;facing=meeting.heading;walking=meeting.walking;seated=meeting.seated;talking=meeting.talking;m.hand=undefined;m.carrying=false;m.station=false;m.idleGesture=undefined;m.noteTarget=meeting.noteTarget;}
+    const moved = Math.hypot(x - g.position.x, z - g.position.z);
+    m.distance = (m.distance ?? 0) + (walking ? moved / S : 0);
     g.position.set(x, spot.pos[1], z);
     let diff = facing - g.rotation.y;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
@@ -401,13 +328,42 @@ function AgentActor({ agent, spot, reducedMotion, selectedColor, selected, hando
   return (
     <group ref={group} position={spot.pos} rotation={[0, spot.rot, 0]} scale={S}>
       <StatusRing status={agent.status} selected={selected} selectedColor={selectedColor} reducedMotion={reducedMotion} />
-      <Character look={agent.look} status={agent.status} seed={motionIdentitySeed(agent.id)} reducedMotion={reducedMotion} motion={motion} onClick={() => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
+      <Character paused={paused} look={agent.look} appearance={agent.appearance} renderer={agent.renderer} status={agent.status} seed={motionIdentitySeed(agent.id)} reducedMotion={reducedMotion} motion={motion} onClick={() => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
         <Anchor id={`${agent.id}:label`} position={[0, 0.15, 0.25]} />
         <Anchor id={`${agent.id}:above`} position={[0, 2.45, 0]} />
+        <Anchor id={`${agent.id}:break`} position={[0, 2.45, 0]} />
         <Anchor id={`${agent.id}:bubble`} position={[0, 2.6, 0]} />
       </Character>
     </group>
   );
+}
+
+/** Runs before actors, with a paused decorative clock and a single shared reservation. */
+function CoffeeController({agents, coffeeRef, meetingRef, handoffRef, meeting, enabled, fx, routes, idleRef, paused, onPhase}: {
+  agents:Agent[];coffeeRef:React.RefObject<CoffeeSample|null>;meetingRef:React.RefObject<Map<string,MeetingActorSample>>;
+  handoffRef:React.RefObject<HandoffSample|null>;meeting:Room["planningMeeting"];enabled:boolean;fx:Fx[];
+  routes:Map<string,{from:number;to:number;route:XZ[]}>;idleRef:React.RefObject<Map<string,IdleGesture>>;paused:boolean;onPhase:(sample:CoffeeSample|null)=>void;
+}) {
+  const [director] = useState(() => new CoffeeDirector());
+  const [meetings] = useState(() => new MeetingDirector());
+  const [traffic] = useState(() => new TrafficDirector());
+  const [idle] = useState(() => new IdleDirector());
+  const lastPhase=useRef<string|null>(null);
+  useFrame((_,dt) => {
+    if(paused)return;
+    const now=Date.now();
+    traffic.enqueue(fx.flatMap(f=>{const route=routes.get(f.id);return f.kind === "handoff" && route ? [{id:f.id,owner:agents[route.from].id,route:route.route,face:[SPOTS[route.to%SPOTS.length].pos[0],SPOTS[route.to%SPOTS.length].pos[2]] as XZ,ts:f.ts}] : [];}),now);
+    const meetingActive=!!meeting && meeting.status === "active" && meeting.expiresAt > now;
+    handoffRef.current=traffic.step(dt,!director.active&&!meetings.inProgress,enabled);
+    const meetingInput=traffic.pending && meeting ? {...meeting,status:"cancelled" as const} : meeting;
+    meetingRef.current=meetings.step(dt,meetingInput,agents.map((a,i)=>({id:a.id,spot:SPOTS[i%SPOTS.length],working:a.status === "working" || a.status === "needs_you"})),now,enabled&&!director.active&&!traffic.active);
+    coffeeRef.current = director.step(dt, agents.map((agent,i) => ({id:agent.id,spot:SPOTS[i % SPOTS.length],
+      idle:process.env.NEXT_PUBLIC_AVATAR_V2_ENABLED !== "false" && agent.renderer !== "v1" && agent.status === "idle" && (!agent.visualActivity || agent.visualActivity === "idle")})), enabled, traffic.pending||meetingActive||meetings.inProgress);
+    idleRef.current=idle.step(dt,agents.map(a=>({id:a.id,idle:a.status === "idle" && (!a.visualActivity || a.visualActivity === "idle") && coffeeRef.current?.owner!==a.id && !meetingRef.current.has(a.id) && handoffRef.current?.owner!==a.id})),enabled);
+    const key=coffeeRef.current?`${coffeeRef.current.owner}:${coffeeRef.current.phase}`:"";
+    if(key!==lastPhase.current){lastPhase.current=key;onPhase(coffeeRef.current?{...coffeeRef.current}:null);}
+  });
+  return null;
 }
 
 export default function OfficeScene({
@@ -416,6 +372,7 @@ export default function OfficeScene({
   theme,
   colorMode = "light",
   motionPreference = "system",
+  quality = "auto",
   fx,
   compact = false,
   padBottom = 70,
@@ -426,6 +383,7 @@ export default function OfficeScene({
   theme: SceneTheme;
   colorMode?: ResolvedColorMode;
   motionPreference?: MotionPreference;
+  quality?: AvatarQuality;
   fx: Fx[];
   compact?: boolean;
   /** Phone only: screen space covered by the bottom sheet / side panel, kept out of the framing. */
@@ -433,6 +391,17 @@ export default function OfficeScene({
   padRight?: number;
 }) {
   const { reduced, visible } = useMotionPreferences(motionPreference);
+  const coffeeRef = useRef<CoffeeSample | null>(null);
+  const meetingRef = useRef(new Map<string,MeetingActorSample>());
+  const handoffRef=useRef<HandoffSample|null>(null);
+  const idleRef=useRef(new Map<string,IdleGesture>());
+  const [paused,setPaused]=useState(false);
+  const [stats,setStats]=useState<StudioStats|null>(null);
+  const [coffeeStatus,setCoffeeStatus]=useState<CoffeeSample|null>(null);
+  const [automaticQuality,setAutomaticQuality] = useState<QualityLevel>(compact ? "low" : "medium");
+  const lastQualityChange = useRef(0);
+  const preference=qualityPreference(quality), level=preference === "auto" ? automaticQuality : preference;
+  const profile=QUALITY_PROFILES[level];
   const ordered = useMemo(() => [...room.agents].sort((a, b) => Number(b.isLead) - Number(a.isLead)), [room.agents]);
   const spotOf = (i: number) => SPOTS[i % SPOTS.length];
   const indexOf = (id?: string) => ordered.findIndex((a) => a.id === id);
@@ -459,7 +428,8 @@ export default function OfficeScene({
       const a = ordered.findIndex((x) => x.id === f.from);
       const b = ordered.findIndex((x) => x.id === f.to);
       if (a < 0 || b < 0 || a === b) continue;
-      out.set(f.id, { from: a, to: b, route: routeBetween(SPOTS[a % SPOTS.length], SPOTS[b % SPOTS.length]) });
+      const route = routeBetween(SPOTS[a % SPOTS.length], SPOTS[b % SPOTS.length]);
+      if (route) out.set(f.id, { from: a, to: b, route });
     }
     return out;
   }, [fx, ordered, room.id]);
@@ -473,17 +443,28 @@ export default function OfficeScene({
   const lighting = scenePalette(colorMode, theme);
 
   return (
-    <div data-scene-mode={colorMode} className="relative h-full w-full overflow-hidden">
+    <div data-scene-mode={colorMode} data-scene-quality={level} data-scene-paused={paused} data-render-calls={stats?.calls} data-render-triangles={stats?.triangles} data-render-geometries={stats?.geometries} data-render-textures={stats?.textures} data-coffee-phase={coffeeStatus?.phase??"idle"} data-coffee-owner={coffeeStatus?.owner??""} className="relative h-full w-full overflow-hidden">
       <StudioBoundary agents={ordered} selectedId={selectedId} onSelect={(agent) => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
-      <Canvas frameloop={visible ? "always" : "never"} shadows dpr={[1, compact ? 1.25 : 1.5]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+      <Canvas frameloop={!visible ? "never" : paused ? "demand" : "always"} shadows={profile.shadowSize > 0} dpr={[1, profile.dpr]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => { gl.toneMapping = ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; gl.shadowMap.type = PCFShadowMap; }}
         onPointerMissed={() => (document.body.style.cursor = "")}>
+        <StudioQualityContext.Provider value={level}>
+        <ContextRecovery />
+        <RendererStats onSample={setStats}/>
+        <QualityMonitor onSample={(ms,stable) => {
+          if(preference !== "auto" || performance.now()-lastQualityChange.current<8000)return;
+          const next=adaptQuality(level,ms,stable,compact);
+          if(next!==level){lastQualityChange.current=performance.now();setAutomaticQuality(next);}
+        }} />
         <Suspense fallback={null}>
         <OrthographicCamera makeDefault position={[20, 17, 20]} near={-50} far={200} zoom={50} />
-        {compact || room.telegram ? <FitToAgents spots={ordered.map((_, i) => spotOf(i))} padTop={16} padBottom={padBottom} padRight={padRight} /> : <ResponsiveZoom />}
+        {compact || room.telegram ? <FitToAgents spots={[...ordered.map((_, i) => spotOf(i)), {pos:[5.75,0,-4.5],rot:Math.PI,kind:"desk"}]} padTop={16} padBottom={padBottom} padRight={padRight} /> : <ResponsiveZoom />}
         <Projector />
+        <CoffeeController key={room.id} agents={ordered} coffeeRef={coffeeRef} meetingRef={meetingRef} handoffRef={handoffRef} idleRef={idleRef} routes={routes} meeting={room.telegram ? undefined : room.planningMeeting} enabled={!reduced && visible}
+          fx={roomFx} paused={paused} onPhase={setCoffeeStatus} />
         <OrbitControls
           makeDefault
+          zoomToCursor
           target={[0.2, 0.6, -0.2]}
           enablePan={compact}
           screenSpacePanning
@@ -508,7 +489,7 @@ export default function OfficeScene({
           intensity={lighting.sunIntensity}
           color={lighting.sunColor}
           castShadow
-          shadow-mapSize={compact ? [1024, 1024] : [2048, 2048]}
+          shadow-mapSize={[profile.shadowSize || 512, profile.shadowSize || 512]}
           shadow-camera-left={-12}
           shadow-camera-right={12}
           shadow-camera-top={12}
@@ -519,6 +500,7 @@ export default function OfficeScene({
         />
         <directionalLight position={[8, 6, 10]} intensity={lighting.fillIntensity} color="#c7dcfa" />
 
+        <StaticStudio version={`${colorMode}:${theme}:${ordered.map(a=>`${a.id}:${a.look.shirt}:${a.status}:${a.appearance?.accessories.deskProp}`).join("|")}`}>
         <StudioEnvironment theme={theme} colorMode={colorMode} />
         <StudioJoinery />
         <Rug position={[TABLE[0], 0.012, TABLE[1]]} radius={2.25} color={THEME_RUG[theme]} />
@@ -532,7 +514,7 @@ export default function OfficeScene({
           const owner = deskOwner[i];
           return (
             <group key={i} position={spot.pos} rotation={[0, spot.rot, 0]} scale={S}>
-              <Workstation seed={i + 1} color={owner?.look.shirt} lead={spot.kind === "lead"} active={owner?.status === "working"} />
+              <Workstation seed={i + 1} color={owner?.look.shirt} lead={spot.kind === "lead"} active={owner?.status === "working"} deskProp={owner?.appearance?.accessories.deskProp} />
             </group>
           );
         })}
@@ -540,6 +522,10 @@ export default function OfficeScene({
         {/* meeting corner */}
         <RoundTable position={[TABLE[0], 0, TABLE[1]]} />
         <Mug position={[TABLE[0] + 0.5, 0.98, TABLE[1] - 0.4]} />
+        {[.8,-.8,2.35,-2.35].map(a=><group key={`notepad-${a}`} position={[TABLE[0]+Math.sin(a)*1.33,.979,TABLE[1]+Math.cos(a)*1.33]} rotation={[0,a,0]}>
+          <mesh receiveShadow><boxGeometry args={[.28,.01,.22]}/><meshStandardMaterial color="#e5dcc4" roughness={.94}/></mesh>
+          {[0,1,2].map(i=><mesh key={i} position={[.015,.0055,-.05+i*.025]} rotation={[-Math.PI/2,0,0]}><planeGeometry args={[.16,.0018]}/><meshStandardMaterial color="#999a84"/></mesh>)}
+        </group>)}
         {[0.8, -0.8, 2.35, -2.35].map((a, i) => {
           const sp = meetingSeat(a);
           return (
@@ -549,8 +535,8 @@ export default function OfficeScene({
           );
         })}
 
-        {/* lounge and coffee */}
-        <CoffeeStation position={[6.1, 0, -5.25]} />
+        {/* lounge and coffeeRef */}
+        <CoffeeStation position={[6.1, 0, -5.25]} coffeeRef={coffeeRef} />
         <Bookshelf position={[3.8, 0, 5.0]} />
         <group position={[6.2, 0, 3.0]} scale={1.25}>
           <Armchair position={[0, 0, 0]} rotation={-2.4} />
@@ -565,26 +551,24 @@ export default function OfficeScene({
         <Plant position={[5.25, 1.11, 5.91]} scale={0.4} seed={8} />
         <Plant position={[6.85, 1.11, 5.91]} scale={0.44} seed={9} />
 
+        </StaticStudio>
+
         {/* agents */}
         {ordered.map((agent, i) => {
-          let handoff: ActorProps["handoff"];
-          for (const f of roomFx) {
-            const r = routes.get(f.id);
-            if (f.kind === "handoff" && r && r.from === i) {
-              const to = spotOf(r.to).pos;
-              handoff = { route: r.route, face: [to[0], to[2]], ts: f.ts };
-            }
-          }
           const cheer = roomFx.filter((f) => f.kind === "celebrate" && f.agentId === agent.id).pop();
           return (
             <AgentActor
               key={agent.id}
               agent={agent}
+              coffeeRef={coffeeRef}
+              meetingRef={meetingRef}
+              idleRef={idleRef}
               spot={spotOf(i)}
               reducedMotion={reduced}
+              paused={paused}
               selectedColor={colorMode === "dark" ? "#cedbd2" : "#16171d"}
               selected={selectedId === agent.id}
-              handoff={handoff}
+              handoffRef={handoffRef}
               celebrateAt={cheer?.ts ?? 0}
               lookAt={agent.status === "working" ? null : lookAt}
             />
@@ -593,24 +577,20 @@ export default function OfficeScene({
 
         {/* hand-off papers (thrown on arrival) and celebrations */}
         {!reduced && roomFx.map((f) => {
-          if (f.kind === "handoff") {
-            const r = routes.get(f.id);
-            if (!r) return null;
-            const end = r.route[r.route.length - 1];
-            const to = spotOf(r.to).pos;
-            const t = handoffTiming(r.route);
-            return <PaperFlight key={f.id} from={[end[0], 1.9, end[1]]} to={[to[0], 1.5, to[2]]} ts={f.ts + (t.arrive - 0.6) * 1000} />;
-          }
+          if (f.kind === "handoff") return null;
           const i = indexOf(f.agentId);
           if (i < 0) return null;
           const p = spotOf(i).pos;
           return <Confetti key={f.id} at={[p[0], 2.8, p[2]]} ts={f.ts} />;
         })}
-        {!compact && <StudioPostProcessing />}
+        {profile.ao && <StudioPostProcessing />}
         </Suspense>
+        </StudioQualityContext.Provider>
       </Canvas>
       <StudioLoader />
+      <button type="button" aria-label={paused ? "Resume scene animation" : "Pause scene animation"} aria-pressed={paused} onClick={()=>setPaused(p=>!p)} title={paused ? "Resume scene animation" : "Pause scene animation"} className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full border border-line bg-surface/90 text-sm text-ink shadow-sm">{paused ? "▶" : "Ⅱ"}</button>
       <div className="pointer-events-none absolute inset-0">
+        {coffeeStatus && <Overlay id={`${coffeeStatus.owner}:break`} z={12}><span className="rounded-full bg-surface px-2 py-1 text-[11px] text-muted shadow-sm">Coffee break{coffeeStatus.brew ? " · brewing" : ""}</span></Overlay>}
         {ordered.map((agent) => (
           <AgentOverlays
             key={agent.id}

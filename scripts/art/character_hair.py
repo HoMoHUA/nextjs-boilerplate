@@ -373,6 +373,30 @@ def _bob(mesh):
               width=0.024, depth=0.011, steps=12, highlight=False, taper=0.92)
 
 
+def _wavy(mesh):
+    _cap(mesh,"bob",sides=40,rings=12)
+    for sign in (-1,1):
+        for i in range(5):
+            _lock(mesh,[(sign*.06,.29,-.02-i*.028),(sign*.19,.19,.1-i*.07),
+                (sign*.245,.04,.12-i*.07),(sign*.215,-.10,.13-i*.07),(sign*.25,-.28,.10-i*.07)],
+                width=.025,depth=.012,steps=18,highlight=i%2==0,taper=.82)
+
+def _side_part(mesh):
+    _cap(mesh,"short")
+    for i in range(8):
+        _lock(mesh,[(-.13,.20,-.12+i*.024),(-.10,.30,-.1+i*.027),
+            (.03,.33,-.07+i*.027),(.16,.24,-.04+i*.027),(.20,.12,-.03+i*.027)],
+            width=.027,depth=.012,steps=12,highlight=i in (2,5),taper=.7)
+
+def _ponytail(mesh):
+    _cap(mesh,"bun")
+    for i in range(7):
+        x=(i-3)*.015
+        _lock(mesh,[(x,.23,-.15),(x,.20,-.26),(x+.025,.05,-.31),
+             (x-.015,-.13,-.30),(x+.025,-.30,-.25)],width=.022,depth=.02,steps=18,
+             highlight=i%3==0,taper=.85)
+
+
 def build_hair(materials):
     """Create and return {object_name: object} for all six named alternatives.
 
@@ -381,6 +405,9 @@ def build_hair(materials):
     Visibility and any head-position translation are left to the caller.
     """
     builders = {
+        "hair_wavy": _wavy,
+        "hair_side-part": _side_part,
+        "hair_ponytail": _ponytail,
         "hair_short": _short,
         "hair_curly": _curly,
         "hair_fluffy": _fluffy,

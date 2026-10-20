@@ -14,7 +14,10 @@ import {
 } from "./protocol";
 import { lookFor, seedState, uid } from "./seed";
 import { canonicalTopics, topicVisible } from "./topics";
-import { initializeAvatarPreferences } from "./avatar/storage";
+import { initializeAvatarPreferences, saveAppearance, resetAppearance } from "./avatar/storage";
+import { validateAppearance } from "./avatar/validate";
+import { fromLegacyLook, toLegacyLook } from "./avatar/defaults";
+import { applyMeetingEvent } from "./office/meetings";
 import { normalizeColorMode } from "./color-mode";
 import type { Agent, AgentStatus, Fx, IntegrationSnapshot, OfficeState, Room, Step } from "./types";
 
@@ -33,7 +36,7 @@ export function setState(fn: (s: OfficeState) => OfficeState) {
   listeners.forEach((l) => l());
   if (typeof window !== "undefined") {
     if (persistTimer) clearTimeout(persistTimer);
-    persistTimer = setTimeout(persist, 400);
+    persistTimer = setTimeout(persistOffice, 400);
   }
 }
 
@@ -47,21 +50,24 @@ export function useOffice(): OfficeState {
   return useSyncExternalStore(subscribe, getState, () => serverSnapshot);
 }
 
-function persist() {
+export function persistOffice(): {ok:true}|{ok:false;error:string} {
+  if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
   try {
     const clean: OfficeState = {
       ...state,
       fx: [],
       rooms: state.rooms.map((r) => r.telegram ? r : ({
         ...r,
+        planningMeeting: undefined,
         messages: r.messages.filter((m) => !m.streaming),
         steps: r.steps.map((s) => (s.status === "running" ? { ...s, status: "done" as const } : s)),
         agents: r.agents.map((a) => ({ ...a, activity: undefined, status: a.status === "working" ? ("idle" as const) : a.status })),
       })),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+    return {ok:true};
   } catch {
-    // storage unavailable — state stays in memory
+    return {ok:false,error:"Applied for this session. Browser storage is unavailable or full; export your appearance before closing."};
   }
 }
 
@@ -80,7 +86,7 @@ export function hydrate() {
           visibleTopicIds:Array.isArray(saved.visibleTopicIds) ? [...new Set(saved.visibleTopicIds.filter(id=>typeof id==="string"))] : undefined,
           integrations: { phase: "connecting", bots: [] },
           activeRoomId: saved.rooms.some((r) => r.id === saved.activeRoomId) ? saved.activeRoomId : saved.rooms[0].id,
-          rooms: saved.rooms.map((r) => ({ ...r, backend: r.backend ?? "hermes",
+          rooms: saved.rooms.map((r) => ({ ...r, ...(r.planningMeeting ? {planningMeeting:undefined} : {}), backend: r.backend ?? "hermes",
             ...(r.telegram?.delivery === "posting" ? {
               telegram: { ...r.telegram, delivery: "error" as const,
                 error: "Page closed during posting; delivery is unconfirmed. Check Telegram before retrying.", awaitingReply: undefined },
@@ -246,6 +252,20 @@ export function startIntegrationPolling():()=>void {
 /* ---------- actions ---------- */
 
 export const actions = {
+  saveAvatar(roomId:string,agentId:string|null,candidate:unknown,reset=false):{ok:true}|{ok:false;error:string} {
+    const room=getState().rooms.find(r=>r.id===roomId);
+    if(!room)return {ok:false,error:"This room is no longer available."};
+    if(room.telegram){
+      const result=reset?resetAppearance(getState().avatarPreferences,room.telegram):saveAppearance(getState().avatarPreferences,room.telegram,candidate);
+      if(!result.ok)return result;
+      setState(s=>({...s,avatarPreferences:result.value}));
+    }else{
+      if(!room.agents.some(a=>a.id===agentId&&!a.runtime))return {ok:false,error:"This character cannot be edited."};
+      const result=validateAppearance(candidate);if(!result.ok)return result;
+      updateRoom(roomId,r=>({...r,agents:r.agents.map(a=>a.id===agentId?{...a,appearanceBaseline:a.appearanceBaseline??fromLegacyLook(a.look,a.id),appearance:result.value,renderer:"v2",look:toLegacyLook(result.value)}:a)}));
+    }
+    return persistOffice();
+  },
   setTopicVisibility(ids:string[]|undefined) {
     const known=new Set(getState().rooms.flatMap(r=>r.telegram?[r.telegram.topicId]:[]));
     const visibleTopicIds=ids===undefined?undefined:[...new Set(ids.filter(id=>known.has(id)))];
@@ -725,6 +745,9 @@ async function runClaudeCode(roomId: string, text: string, targetAgentId: string
 
     await readOfficeEvents(res, (e: OfficeEvent) => {
       switch (e.type) {
+        case "planning_meeting":
+          updateRoom(roomId, r => applyMeetingEvent(r,e,Date.now()));
+          break;
         case "session":
           updateRoom(roomId, (r) => ({ ...r, ccSessionId: e.id }));
           break;

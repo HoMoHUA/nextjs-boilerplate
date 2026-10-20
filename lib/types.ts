@@ -37,6 +37,9 @@ export interface Agent {
   /** Scene-only representative of a Telegram topic, never a send target. */
   topicRoomId?: string;
   /** Presentation only; never a routing or execution signal. */
+  appearanceBaseline?: import("./avatar/types").AvatarAppearanceV2;
+  appearance?: import("./avatar/types").AvatarAppearanceV2;
+  renderer?: "v1" | "v2";
   visualActivity?: import("./avatar/status").VisualActivity;
 }
 
@@ -146,6 +149,8 @@ export interface IntegrationStatus {
 }
 
 export interface Room {
+  planningMeeting?: import("./office/meetings").PlanningMeeting;
+  meetingEventIds?: string[];
   id: string;
   name: string;
   emoji: string;
@@ -199,6 +204,7 @@ export interface OfficeState {
   schedules: Schedule[];
   theme: SceneTheme;
   colorMode?: import("./color-mode").ColorMode;
+  qualityPreference?: import("./avatar/types").AvatarQuality;
   motionPreference?: "system" | "reduced" | "full";
   roomsCollapsed: boolean;
   panelCollapsed: boolean;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
-import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Group, type Mesh, type MeshStandardMaterial } from "three";
+import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type MeshStandardMaterial } from "three";
 import { FurnitureAsset } from "./studio/FurnitureAsset";
 import { Cable, Fabric, Oak, OakTop, Rod, Surface, type V3 } from "./studio/FurnitureSurfaces";
 
@@ -183,23 +183,12 @@ export function Cabinet({ position, rotation = 0 }: { position: V3; rotation?: n
 
 /** Authored broad leaves have stems, curved surfaces and raised midribs. */
 export function Plant({ position, scale = 1, seed = 0 }: { position: V3; scale?: number; seed?: number }) {
-  const leaves = useRef<Group>(null);
-  useFrame(({ clock }) => { if (leaves.current) leaves.current.rotation.z = Math.sin(clock.elapsedTime * 0.65 + seed) * 0.009; });
-  return <group position={position} scale={scale}><group ref={leaves} rotation={[0, seed * 1.1, 0]}><FurnitureAsset model="plant" /></group></group>;
+  return <group position={position} scale={scale}><group rotation={[0, seed * 1.1, 0]}><FurnitureAsset model="plant" /></group></group>;
 }
 
-/** Hollow fired ceramic, a visible coffee surface, and faint restrained steam. */
+/** Hollow fired ceramic and visible coffee; steam belongs to active brewing. */
 export function Mug({ position }: { position: V3 }) {
-  const steam = useRef<(Mesh | null)[]>([]);
-  useFrame(({ clock }) => {
-    steam.current.forEach((puff, i) => {
-      if (!puff) return; const t = (clock.elapsedTime * 0.24 + i / 2) % 1;
-      puff.position.set(Math.sin(t * 4 + i) * 0.012, 0.19 + t * 0.2, 0);
-      puff.scale.set(0.012 + t * 0.016, 0.025 + t * 0.03, 0.012 + t * 0.016);
-      (puff.material as MeshStandardMaterial).opacity = 0.065 * (1 - t);
-    });
-  });
-  return <group position={position}><FurnitureAsset model="mug" />{[0, 1].map((i) => <mesh key={i} ref={(element) => { steam.current[i] = element; }}><sphereGeometry args={[1, 8, 6]} /><meshStandardMaterial color="#f8f2e8" transparent opacity={0.04} depthWrite={false} /></mesh>)}</group>;
+  return <group position={position}><FurnitureAsset model="mug" /></group>;
 }
 
 let rugMap: CanvasTexture | undefined;

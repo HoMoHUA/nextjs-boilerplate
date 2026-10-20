@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {BoxGeometry,Group,Mesh,MeshStandardMaterial} from 'three';
+import {batchStatic} from './static-batch';
+const root=new Group(),geometry=new BoxGeometry(1,1,1),a=new Mesh(geometry,new MeshStandardMaterial({color:'#ff0000'})),b=new Mesh(geometry,new MeshStandardMaterial({color:'#00ff00'}));b.position.x=3;root.add(a,b);
+const dynamic=new Group();dynamic.userData.unbatchable=true;const moving=new Mesh(geometry,a.material);dynamic.add(moving);root.add(dynamic);
+const transparent=new Mesh(geometry,new MeshStandardMaterial({transparent:true,opacity:.4}));root.add(transparent);
+let sourceDisposals=0;geometry.addEventListener('dispose',()=>sourceDisposals++);
+const batch=batchStatic(root);assert.equal(batch.sourceMeshes,2);assert.equal(batch.batchMeshes,1);assert.equal(a.visible,false);assert.equal(b.visible,false);assert.equal(moving.visible,true);assert.equal(transparent.visible,true);
+const merged=root.children.find(o=>o.name==='Batched static studio')as Mesh;
+merged.geometry.computeBoundingBox();assert.equal(merged.geometry.boundingBox!.max.x,3.5,'world transforms baked');
+const color=merged.geometry.attributes.color;assert.ok(Array.from(color.array).some(n=>n===1),'source colors survive as vertex colors');
+assert.equal(a.material.color.getHexString(),'ff0000');assert.equal(b.material.color.getHexString(),'00ff00');
+batch.dispose();assert.equal(a.visible,true);assert.equal(b.visible,true);assert.equal(sourceDisposals,0,'shared source geometry must survive');assert.equal(root.children.length,4);
+console.log('PASS static draw-call batching, world transforms/color, dynamic/transparency exclusions and owned-resource cleanup');

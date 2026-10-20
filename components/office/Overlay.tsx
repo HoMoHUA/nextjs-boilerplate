@@ -11,7 +11,7 @@ import { Vector3, type Group, type Object3D } from "three";
  */
 const anchors = new Map<string, Object3D>();
 /** `ax`/`ay` pick the point of the element that sits on the anchor (0.5/0.5 = centered, 0.62/1 = above, a bit left). */
-const elements = new Map<string, { el: HTMLDivElement; ax: number; ay: number; clamp: boolean }>();
+const elements = new Map<string, { el: HTMLDivElement; ax: number; ay: number; clamp: boolean; width: number; height: number }>();
 const tmp = new Vector3();
 
 /** An invisible point in the scene an overlay with the same id follows. */
@@ -38,8 +38,8 @@ export function Projector() {
         continue;
       }
       obj.getWorldPosition(tmp).project(camera);
-      const w = item.el.offsetWidth;
-      const h = item.el.offsetHeight;
+      const w = item.width;
+      const h = item.height;
       let x = ((tmp.x + 1) / 2) * size.width - item.ax * w;
       let y = ((1 - tmp.y) / 2) * size.height - item.ay * h;
       if (item.clamp) {
@@ -74,8 +74,12 @@ export function Overlay({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    elements.set(id, { el, ax, ay, clamp });
+    const item = { el, ax, ay, clamp, width: el.offsetWidth, height: el.offsetHeight };
+    elements.set(id, item);
+    const observer = new ResizeObserver(() => { item.width = el.offsetWidth; item.height = el.offsetHeight; });
+    observer.observe(el);
     return () => {
+      observer.disconnect();
       if (elements.get(id)?.el === el) elements.delete(id);
     };
   }, [id, ax, ay, clamp]);

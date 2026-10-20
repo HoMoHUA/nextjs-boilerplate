@@ -19,7 +19,7 @@ export class StudioBoundary extends Component<Props, { failed: boolean; attempt:
 
   retry = () => {
     // Clear rejected loader promises before remounting the canvas.
-    useGLTF.clear("/models/studio/characters.glb");
+    for (const suffix of ["", "-v1", "-low", "-medium", "-high"]) useGLTF.clear(`/models/studio/characters${suffix}.glb`);
     for (const name of ["chair", "executive-chair", "lounge", "plant", "mug", "espresso"]) {
       useGLTF.clear(`/models/studio/furniture-${name}.glb`);
     }
