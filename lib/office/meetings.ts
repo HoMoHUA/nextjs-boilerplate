@@ -25,6 +25,7 @@ interface Journey {id:string;home:Spot;seat:Spot;route:XZ[];distance:number;phas
 /** Serialize aisle use. Meeting chairs are reserved only if no nonparticipant occupies them. */
 export class MeetingDirector {
   id:string|null=null; time=0; returning=false; journeys:Journey[]=[];
+  get phase():"gathering"|"discussing"|"returning"|null {return !this.inProgress?null:this.returning?"returning":this.journeys.every(j=>j.phase==="seated")?"discussing":"gathering";}
   get inProgress(){return this.journeys.some(j=>j.phase!=="home");}
   step(dt:number,meeting:PlanningMeeting|undefined,agents:{id:string;spot:Spot;working:boolean}[],now:number,enabled:boolean):Map<string,MeetingActorSample>{
     const out=new Map<string,MeetingActorSample>();if(!enabled)return out;
@@ -32,12 +33,14 @@ export class MeetingDirector {
     if(meeting?.id!==this.id&&meeting?.status==='active'&&meeting.expiresAt>now&&now-meeting.startedAt<30000){
       const free=SPOTS.slice(8).filter(seat=>!agents.some(a=>a.spot===seat&&!meeting.participants.includes(a.id)));
       if(free.length<meeting.participants.length)return out;
-      const journeys:Journey[]=[];
-      for(const id of meeting.participants){const agent=agents.find(a=>a.id===id);if(!agent)return out;const seat=free.shift()!;const path=routeBetween(agent.spot,seat);if(!path)return out;const route=[...path,[seat.pos[0],seat.pos[2]] as XZ];journeys.push({id,home:agent.spot,seat,route,distance:0,phase:'waiting',started:0});}
+      const journeys:Journey[]=[],assigned=new Map<string,Spot>();
+      for(const id of meeting.participants){const agent=agents.find(a=>a.id===id);if(!agent)return out;if(agent.spot.kind === "meeting"){assigned.set(id,agent.spot);free.splice(free.indexOf(agent.spot),1);}}
+      for(const id of meeting.participants){const agent=agents.find(a=>a.id===id)!;const seat=assigned.get(id)??free.shift()!;if(agent.spot===seat){journeys.push({id,home:agent.spot,seat,route:[[seat.pos[0],seat.pos[2]]],distance:0,phase:"seated",started:0});continue;}const path=routeBetween(agent.spot,seat);if(!path)return out;const route=[...path,[seat.pos[0],seat.pos[2]] as XZ];journeys.push({id,home:agent.spot,seat,route,distance:0,phase:'waiting',started:0});}
       this.id=meeting.id;this.journeys=journeys;this.returning=false;
     }
     if(!this.id)return out;
     if(!meeting||meeting.id!==this.id||meeting.status!=='active'||meeting.expiresAt<=now||agents.some(a=>this.journeys.some(j=>j.id===a.id)&&a.working))this.returning=true;
+    const discussing=!this.returning&&this.journeys.every(j=>j.phase === "seated");
     let moving=false;
     for(const j of this.journeys){
       const len=pathLength(j.route);
@@ -50,13 +53,13 @@ export class MeetingDirector {
       }else if(j.phase==='seated'){
         const speaker=Math.floor(this.time/4)%this.journeys.length,index=this.journeys.indexOf(j);
         const dx=j.seat.pos[0]+4.4,dz=j.seat.pos[2]-4,r=Math.hypot(dx,dz);
-        out.set(j.id,{x:j.seat.pos[0],z:j.seat.pos[2],heading:j.seat.rot,walking:false,seated:true,talking:!this.returning&&speaker===index,distance:len,
-          noteTarget:!this.returning&&(speaker+1)%this.journeys.length===index?[-4.4+dx/r*1.33,1.089,4+dz/r*1.33]:undefined});
+        out.set(j.id,{x:j.seat.pos[0],z:j.seat.pos[2],heading:j.seat.rot,walking:false,seated:true,talking:discussing&&speaker===index,distance:len,
+          noteTarget:discussing&&(speaker+1)%this.journeys.length===index?[-4.4+dx/r*1.33,1.089,4+dz/r*1.33]:undefined});
       }
     }
     if(!moving){
       const next=this.returning?this.journeys.find(j=>j.phase==='seated'):this.journeys.find(j=>j.phase==='waiting');
-      if(next){next.phase=this.returning?'return':'outbound';next.started=this.time;}
+      if(next){next.phase=this.returning?(next.home===next.seat?'home':'return'):'outbound';next.started=this.time;}
       if(this.returning)for(const j of this.journeys)if(j.phase==='waiting')j.phase='home';
     }
     return out;

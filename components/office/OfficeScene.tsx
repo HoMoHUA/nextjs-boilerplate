@@ -339,16 +339,16 @@ function AgentActor({ agent, spot, reducedMotion, paused, selectedColor, selecte
 }
 
 /** Runs before actors, with a paused decorative clock and a single shared reservation. */
-function CoffeeController({agents, coffeeRef, meetingRef, handoffRef, meeting, enabled, fx, routes, idleRef, paused, onPhase}: {
+function CoffeeController({agents, coffeeRef, meetingRef, handoffRef, meeting, enabled, fx, routes, idleRef, paused, onPhase, onMeeting}: {
   agents:Agent[];coffeeRef:React.RefObject<CoffeeSample|null>;meetingRef:React.RefObject<Map<string,MeetingActorSample>>;
   handoffRef:React.RefObject<HandoffSample|null>;meeting:Room["planningMeeting"];enabled:boolean;fx:Fx[];
-  routes:Map<string,{from:number;to:number;route:XZ[]}>;idleRef:React.RefObject<Map<string,IdleGesture>>;paused:boolean;onPhase:(sample:CoffeeSample|null)=>void;
+  routes:Map<string,{from:number;to:number;route:XZ[]}>;idleRef:React.RefObject<Map<string,IdleGesture>>;paused:boolean;onPhase:(sample:CoffeeSample|null)=>void;onMeeting:(phase:string|null)=>void;
 }) {
   const [director] = useState(() => new CoffeeDirector());
   const [meetings] = useState(() => new MeetingDirector());
   const [traffic] = useState(() => new TrafficDirector());
   const [idle] = useState(() => new IdleDirector());
-  const lastPhase=useRef<string|null>(null);
+  const lastPhase=useRef<string|null>(null),lastMeeting=useRef<string|null>(null);
   useFrame((_,dt) => {
     if(paused)return;
     const now=Date.now();
@@ -360,6 +360,8 @@ function CoffeeController({agents, coffeeRef, meetingRef, handoffRef, meeting, e
     coffeeRef.current = director.step(dt, agents.map((agent,i) => ({id:agent.id,spot:SPOTS[i % SPOTS.length],
       idle:process.env.NEXT_PUBLIC_AVATAR_V2_ENABLED !== "false" && agent.renderer !== "v1" && agent.status === "idle" && (!agent.visualActivity || agent.visualActivity === "idle")})), enabled, traffic.pending||meetingActive||meetings.inProgress);
     idleRef.current=idle.step(dt,agents.map(a=>({id:a.id,idle:a.status === "idle" && (!a.visualActivity || a.visualActivity === "idle") && coffeeRef.current?.owner!==a.id && !meetingRef.current.has(a.id) && handoffRef.current?.owner!==a.id})),enabled);
+    const meetingPhase=meetings.phase ?? (meetingActive&&meetings.id!==meeting?.id ? "waiting" : null);
+    if(lastMeeting.current!==meetingPhase){lastMeeting.current=meetingPhase;onMeeting(meetingPhase);}
     const key=coffeeRef.current?`${coffeeRef.current.owner}:${coffeeRef.current.phase}`:"";
     if(key!==lastPhase.current){lastPhase.current=key;onPhase(coffeeRef.current?{...coffeeRef.current}:null);}
   });
@@ -396,6 +398,7 @@ export default function OfficeScene({
   const handoffRef=useRef<HandoffSample|null>(null);
   const idleRef=useRef(new Map<string,IdleGesture>());
   const [paused,setPaused]=useState(false);
+  const [meetingPhase,setMeetingPhase]=useState<string|null>(null);
   const [stats,setStats]=useState<StudioStats|null>(null);
   const [coffeeStatus,setCoffeeStatus]=useState<CoffeeSample|null>(null);
   const [automaticQuality,setAutomaticQuality] = useState<QualityLevel>(compact ? "low" : "medium");
@@ -443,7 +446,7 @@ export default function OfficeScene({
   const lighting = scenePalette(colorMode, theme);
 
   return (
-    <div data-scene-mode={colorMode} data-scene-quality={level} data-scene-paused={paused} data-render-calls={stats?.calls} data-render-triangles={stats?.triangles} data-render-geometries={stats?.geometries} data-render-textures={stats?.textures} data-coffee-phase={coffeeStatus?.phase??"idle"} data-coffee-owner={coffeeStatus?.owner??""} className="relative h-full w-full overflow-hidden">
+    <div data-scene-mode={colorMode} data-scene-quality={level} data-scene-paused={paused} data-meeting-phase={meetingPhase??"idle"} data-render-calls={stats?.calls} data-render-triangles={stats?.triangles} data-render-geometries={stats?.geometries} data-render-textures={stats?.textures} data-coffee-phase={coffeeStatus?.phase??"idle"} data-coffee-owner={coffeeStatus?.owner??""} className="relative h-full w-full overflow-hidden">
       <StudioBoundary agents={ordered} selectedId={selectedId} onSelect={(agent) => agent.topicRoomId ? actions.selectRoom(agent.topicRoomId) : actions.selectAgent(agent.id)}>
       <Canvas frameloop={!visible ? "never" : paused ? "demand" : "always"} shadows={profile.shadowSize > 0} dpr={[1, profile.dpr]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => { gl.toneMapping = ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; gl.shadowMap.type = PCFShadowMap; }}
@@ -461,7 +464,7 @@ export default function OfficeScene({
         {compact || room.telegram ? <FitToAgents spots={[...ordered.map((_, i) => spotOf(i)), {pos:[5.75,0,-4.5],rot:Math.PI,kind:"desk"}]} padTop={16} padBottom={padBottom} padRight={padRight} /> : <ResponsiveZoom />}
         <Projector />
         <CoffeeController key={room.id} agents={ordered} coffeeRef={coffeeRef} meetingRef={meetingRef} handoffRef={handoffRef} idleRef={idleRef} routes={routes} meeting={room.telegram ? undefined : room.planningMeeting} enabled={!reduced && visible}
-          fx={roomFx} paused={paused} onPhase={setCoffeeStatus} />
+          fx={roomFx} paused={paused} onPhase={setCoffeeStatus} onMeeting={setMeetingPhase} />
         <OrbitControls
           makeDefault
           zoomToCursor
@@ -588,6 +591,7 @@ export default function OfficeScene({
         </StudioQualityContext.Provider>
       </Canvas>
       <StudioLoader />
+      {meetingPhase && <span role="status" className="absolute right-16 top-3 z-20 rounded-xl border border-line bg-surface/90 px-3 py-2 text-[11px] text-muted shadow-sm">{meetingPhase === "waiting" ? "Waiting for meeting seats" : meetingPhase === "gathering" ? "Planning meeting · gathering" : meetingPhase === "returning" ? "Returning to work" : "Planning meeting"}</span>}
       <button type="button" aria-label={paused ? "Resume scene animation" : "Pause scene animation"} aria-pressed={paused} onClick={()=>setPaused(p=>!p)} title={paused ? "Resume scene animation" : "Pause scene animation"} className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full border border-line bg-surface/90 text-sm text-ink shadow-sm">{paused ? "▶" : "Ⅱ"}</button>
       <div className="pointer-events-none absolute inset-0">
         {coffeeStatus && <Overlay id={`${coffeeStatus.owner}:break`} z={12}><span className="rounded-full bg-surface px-2 py-1 text-[11px] text-muted shadow-sm">Coffee break{coffeeStatus.brew ? " · brewing" : ""}</span></Overlay>}

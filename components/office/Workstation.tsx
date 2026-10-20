@@ -89,7 +89,7 @@ export function DeskMonitor({ position, rotation = 0, seed, on, active, width = 
     current.emissiveIntensity += ((on ? (active ? 0.4 : 0.18) : 0) - current.emissiveIntensity) * Math.min(1, dt * 3);
   });
   const height = width * 0.585;
-  return <group userData={{unbatchable:true}} position={position} rotation={[0, Math.PI + rotation, 0]}>
+  return <group position={position} rotation={[0, Math.PI + rotation, 0]}>
     <RoundedBox smoothness={2} bevelSegments={2} args={[0.09, 0.027, 0.105]} radius={0.008} position={[0.13, 0.006, -0.07]} castShadow><Surface color={FRAME} metalness={0.5} roughness={0.35} /></RoundedBox>
     <Rod from={[0.13, 0.01, -0.07]} to={[0.13, 0.26, -0.07]} radius={0.017} />
     <Rod from={[0.13, 0.25, -0.07]} to={[-0.03, 0.32, -0.09]} radius={0.022} />
@@ -98,7 +98,7 @@ export function DeskMonitor({ position, rotation = 0, seed, on, active, width = 
     <group position={[0, 0.2 + height / 2, 0]} rotation={[-0.035, 0, 0]}>
       <RoundedBox smoothness={2} bevelSegments={2} args={[width, height, 0.029]} radius={0.009} castShadow><Surface color="#313632" roughness={0.36} metalness={0.15} /></RoundedBox>
       <RoundedBox smoothness={2} bevelSegments={2} args={[width * 0.68, height * 0.66, 0.037]} radius={0.02} position={[0, -0.015, -0.027]} castShadow><Surface color="#646c60" roughness={0.56} metalness={0.15} /></RoundedBox>
-      <mesh position={[0, 0.004, 0.0151]}><planeGeometry args={[width - 0.026, height - 0.032]} /><meshStandardMaterial ref={material} color={on ? "#d9e1d8" : "#171e1a"} map={on ? texture : null} emissive="#d9e0d2" emissiveMap={on ? texture : null} emissiveIntensity={on ? 0.1 : 0} roughness={0.33} /></mesh>
+      <mesh userData={{unbatchable:true}} position={[0, 0.004, 0.0151]}><planeGeometry args={[width - 0.026, height - 0.032]} /><meshStandardMaterial ref={material} color={on ? "#d9e1d8" : "#171e1a"} map={on ? texture : null} emissive="#d9e0d2" emissiveMap={on ? texture : null} emissiveIntensity={on ? 0.1 : 0} roughness={0.33} /></mesh>
       <mesh position={[0, -height / 2 + 0.009, 0.016]}><circleGeometry args={[0.0026, 10]} /><meshStandardMaterial color={on ? "#b9c9a3" : "#657260"} emissive="#b9c9a3" emissiveIntensity={on ? 0.5 : 0} /></mesh>
       <RoundedBox smoothness={2} bevelSegments={2} args={[0.07, 0.022, 0.003]} radius={0.003} position={[0, -0.04, -0.047]}><Surface color="#7b8274" roughness={0.4} /></RoundedBox>
     </group>
@@ -183,7 +183,7 @@ export function CoffeeStation({ position, rotation = 0, coffeeRef }: { position:
     if (cup.current) cup.current.visible = !sample?.carrying;
     if (brew.current) brew.current.visible = !!sample?.brew;
   });
-  return <group userData={{unbatchable:true}} position={position} rotation={[0, rotation, 0]}>
+  return <group position={position} rotation={[0, rotation, 0]}>
     <RoundedBox smoothness={2} bevelSegments={2} args={[1.59, 0.9, 0.73]} radius={0.01} position={[0, 0.52, 0]} castShadow receiveShadow><Oak color="#99764f" /></RoundedBox>
     <mesh position={[0, 0.055, 0]}><boxGeometry args={[1.46, 0.11, 0.66]} /><Surface color="#494b3e" /></mesh>
     <OakTop width={1.66} depth={0.8} thickness={0.054} position={[0, 1.02, 0]} color="#c1a17a" />
@@ -192,8 +192,8 @@ export function CoffeeStation({ position, rotation = 0, coffeeRef }: { position:
       <Rod from={[x - 0.12, 0.895, 0.392]} to={[x + 0.12, 0.895, 0.392]} radius={0.008} color="#4e5548" />
     </group>)}
     <group position={[-0.36, 1.048, -0.06]}><FurnitureAsset model="espresso" /></group>
-    <group ref={cup} position={[-0.36, 1.125, 0.18]} scale={0.62}><Mug position={[0, 0, 0]} /></group>
-    <group ref={brew} visible={false}>
+    <group ref={cup} userData={{unbatchable:true}} position={[-0.36, 1.125, 0.18]} scale={0.62}><Mug position={[0, 0, 0]} /></group>
+    <group ref={brew} userData={{unbatchable:true}} visible={false}>
       <mesh position={[-.36,1.244,.18]}><cylinderGeometry args={[.004,.005,.05,8]} /><meshStandardMaterial color="#754326" roughness={.3} /></mesh>
       {[0,1,2].map(i => <mesh key={i} position={[-.36+i*.014,1.39+i*.045,.18]} scale={[.025,.055,.025]}><sphereGeometry args={[1,8,6]} /><meshStandardMaterial color="#f8f2e8" transparent opacity={.09-i*.02} depthWrite={false} /></mesh>)}
     </group>

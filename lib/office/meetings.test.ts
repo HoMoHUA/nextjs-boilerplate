@@ -20,8 +20,16 @@ let seated=false,returned=false;
 for(let i=0;i<6000;i++){
  const samples=director.step(.05,active.planningMeeting,agents,now+i*50,true);
  assert.ok([...samples.values()].filter(s=>s.walking).length<=1,'only one actor uses an aisle');
+ if([...samples.values()].some(s=>s.walking))assert.equal([...samples.values()].some(s=>s.talking||s.noteTarget),false,'discussion waits for all participants');
  seated ||= [...samples.values()].filter(s=>s.seated).length===2;
  if(i>1500&&samples.size===0)returned=true;
 }
 assert.ok(seated,'all participants sit');assert.ok(returned,'participants return after expiry');
 console.log('PASS meeting chair reservations, serialized walking, sitting and expiry return');
+
+const occupied=new MeetingDirector(),full=Array.from({length:12},(_,i)=>({id:`full-${i}`,spot:SPOTS[i],working:false}));
+assert.equal(occupied.step(.05,{id:'full',participants:['full-0','full-1'],startedAt:now,expiresAt:now+120000,status:'active'},full,now,true).size,0);
+const seatedDirector=new MeetingDirector(),atTable=[{id:'here',spot:SPOTS[8],working:false},{id:'join',spot:SPOTS[1],working:false}];
+const existing=seatedDirector.step(.05,{id:'already-here',participants:['here','join'],startedAt:now,expiresAt:now+120000,status:'active'},atTable,now,true);
+assert.equal(existing.get('here')?.seated,true);assert.equal(existing.get('here')?.walking,false);
+console.log('PASS no speech to empty seats, occupied-chair rejection and already-seated participant preservation');

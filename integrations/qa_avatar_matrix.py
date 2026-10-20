@@ -27,12 +27,12 @@ async def main():
    checks.append({'characters':count,'quality':quality,'viewport':[width,height],'motion':'reduced, static poses','pageErrors':errors,'rendererCounters':await page.locator('[data-scene-quality]').evaluate('(el)=>({...el.dataset})')});print(f'{count} people / {quality} / {width}px passed',flush=True);await context.close()
   # Actual frontend stream handler consumes an explicit typed event from this local mock.
   context=await browser.new_context(viewport={'width':1440,'height':1000},device_scale_factor=1);state=fixture();state['rooms'][0]['backend']='claude-code';state['qualityPreference']='low';state['motionPreference']='full'
-  await context.add_init_script('if(!localStorage.getItem("arklyn-office-v3"))localStorage.setItem("arklyn-office-v3",'+json.dumps(json.dumps(state))+');')
+  await context.add_init_script('window.__fixtureNow=Date.now();Date.now=()=>window.__fixtureNow;if(!localStorage.getItem("arklyn-office-v3"))localStorage.setItem("arklyn-office-v3",'+json.dumps(json.dumps(state))+');')
   posts=[]
   async def meeting_api(route):
    path=route.request.url.split('/api/',1)[1]
    if route.request.method=='POST':
-    assert path=='claude-code';posts.append(path);now=int(time.time()*1000)
+    assert path=='claude-code';posts.append(path);now=await page.evaluate('Date.now()')
     event={'type':'planning_meeting','eventId':'fixture-start','meetingId':'fixture-meeting','issuedAt':now,'phase':'start','participants':['visual-0','visual-1'],'durationSeconds':120}
     events=[{'type':'session','id':'fixture','agents':[]},event,event,{'type':'text','agent':None,'parent':None,'delta':'Local fixture only.'},{'type':'done'}]
     await route.fulfill(status=200,content_type='text/event-stream',body=''.join('data: '+json.dumps(e)+'\n\n'for e in events));return
@@ -46,8 +46,9 @@ async def main():
   await page.wait_for_function('JSON.parse(localStorage.getItem("arklyn-office-v3")).rooms[0].meetingEventIds?.length === 1')
   assert posts==['claude-code'];assert not errors,errors
   # Give normal decorative locomotion time to reach the meeting area.
-  await page.wait_for_timeout(25000)
+  await page.wait_for_function('document.querySelector("[data-meeting-phase]")?.dataset.meetingPhase === "discussing"',timeout=600000)
+  await page.get_by_role('button',name='Pause scene animation',exact=True).click()
   await page.screenshot(path=str(out/'explicit-meeting.png'))
-  checks.append({'meeting':'frontend consumes explicit mocked stream; duplicate event stored once','producer':'local mock only; live broker producer still required','pageErrors':errors})
+  checks.append({'meeting':'frontend consumes explicit mocked stream; duplicate event stored once','producer':'local mock only with frozen wall clock; live broker producer still required','pageErrors':errors})
   (out/'results.json').write_text(json.dumps({'checks':checks,'browser':browser.version,'limitation':'Functional/static SwiftShader matrix, not mobile GPU/FPS or live meeting producer evidence'},indent=2));print(json.dumps(checks,indent=2),flush=True);await browser.close()
 if __name__=='__main__':asyncio.run(main())
