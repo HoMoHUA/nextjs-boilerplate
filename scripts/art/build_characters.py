@@ -545,6 +545,11 @@ for level,ratio in [("high",.42),("medium",.245),("low",.095)]:
         if ob.type!="MESH":continue
         ob.data=originals[ob.name].copy()
         bpy.context.view_layer.objects.active=ob
-        mod=ob.modifiers.new("Offline LOD","DECIMATE");mod.ratio=ratio;mod.use_collapse_triangulate=True
+        # Keep enough scalp topology at Low: aggressive cap decimation can cut
+        # through the independently simplified face and reveal skin triangles.
+        is_low_hair=level=="low" and ob.name.startswith("hair_")
+        mod=ob.modifiers.new("Offline LOD","DECIMATE");mod.ratio=.18 if is_low_hair else ratio;mod.use_collapse_triangulate=True
         bpy.ops.object.modifier_apply(modifier=mod.name)
+        if is_low_hair:
+            for vertex in ob.data.vertices:vertex.co*=1.025
     bpy.ops.export_scene.gltf(filepath=os.path.join(ROOT,"public","models","studio","characters-"+level+".glb"),export_format="GLB",export_yup=True,export_materials="EXPORT",export_animations=False,export_cameras=False,export_lights=False)

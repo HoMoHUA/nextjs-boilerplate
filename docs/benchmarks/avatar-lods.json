@@ -3,9 +3,9 @@
   "levels": [
     {
       "level": "low",
-      "bytes": 356128,
+      "bytes": 429492,
       "parts": 51,
-      "worstCaseTriangles": 2474,
+      "worstCaseTriangles": 2749,
       "inactiveRigidHandVariantsIncluded": true,
       "budget": 3000,
       "withinBudget": true
